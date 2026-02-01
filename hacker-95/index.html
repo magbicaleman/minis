@@ -13,6 +13,10 @@
         --accent: #7ff1ff;
       }
 
+      @view-transition {
+        navigation: auto;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -238,6 +242,12 @@
         <div id="speed-control">
           <label for="speed">Travel speed: <span id="speed-value">120</span></label>
           <input id="speed" type="range" min="20" max="500" step="1" value="120" />
+          <div style="margin-top: 8px;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <input type="checkbox" id="fog-toggle" checked style="accent-color: var(--accent);">
+              Enable Atmospheric Fog
+            </label>
+          </div>
         </div>
         <div id="debug-controls">
           <div style="margin-bottom: 8px; color: var(--accent); font-weight: bold;">DEBUG DIAGNOSTICS:</div>
@@ -292,7 +302,8 @@
       scene.background = new THREE.Color(0x020408);
       
       // Atmospheric fog for depth (like the movie)
-      scene.fog = new THREE.FogExp2(0x0a1525, 0.012);
+      const baseFog = new THREE.FogExp2(0x0a1525, 0.012);
+      scene.fog = baseFog;
 
       const camera = new THREE.PerspectiveCamera(
         70,
@@ -350,6 +361,17 @@
         travelSpeed = value;
         if (speedValue) speedValue.textContent = String(value);
       });
+
+      // Fog Toggle Logic
+      const fogToggle = document.getElementById("fog-toggle");
+      fogToggle?.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          scene.fog = baseFog;
+        } else {
+          scene.fog = null;
+        }
+      });
+
       let cityGenerated = false;
       enterButton.addEventListener("click", () => {
         // In debug mode, allow regeneration. Otherwise, only once.
@@ -1061,7 +1083,7 @@
       const floorSize = 1200;
       const textureLoader = new THREE.TextureLoader();
       const circuitFloorTexture = textureLoader.load(
-        'assets/image.png',
+        '/hacker-95/assets/image.png',
         () => console.log("Floor texture loaded successfully."),
         undefined,
         (err) => console.error("Error loading floor texture:", err)
