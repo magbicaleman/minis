@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minis Hub</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --term-green: #00ff41;
+            --term-dim: #008f11;
+            --accent: #00ffcc;
+        }
+
+        @view-transition {
+            navigation: auto;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--term-green);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        #terminal {
+            flex-grow: 1;
+            overflow-y: auto;
+            border-left: 2px solid var(--term-dim);
+            padding-left: 20px;
+        }
+
+        .line {
+            margin-bottom: 5px;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+
+        .prompt {
+            color: var(--term-dim);
+            margin-right: 10px;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        #command-input {
+            background: transparent;
+            border: none;
+            color: var(--term-green);
+            font-family: inherit;
+            font-size: 1rem;
+            flex-grow: 1;
+            outline: none;
+            caret-color: var(--term-green);
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* CRT Scanlines and Glow */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        #scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(transparent 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .project-item {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .project-item:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="scanlines"></div>
+    <div id="terminal">
+        <div class="line">MINIS_OS [Version 1.0.4]</div>
+        <div class="line">(c) 2026 Minis Corp. All rights reserved.</div>
+        <div class="line">&nbsp;</div>
+        <div id="output"></div>
+        <div class="input-line">
+            <span class="prompt">C:\MINIS></span>
+            <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false" />
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('command-input');
+        const output = document.getElementById('output');
+        const terminal = document.getElementById('terminal');
+
+        const projects = [
+            { id: 'hacker-95', name: 'Hacker-95 (Gibson Environment)' }
+        ];
+
+        function addLine(text, className = '') {
+            const line = document.createElement('div');
+            line.className = 'line ' + className;
+            line.innerHTML = text;
+            output.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = input.value.toLowerCase().trim();
+                addLine(`<span class="prompt">C:\\MINIS></span>${input.value}`);
+                input.value = '';
+
+                processCommand(cmd);
+            }
+        });
+
+        // Re-focus input on click
+        document.addEventListener('click', () => {
+            input.focus();
+        });
+
+        function processCommand(cmd) {
+            if (cmd === 'help') {
+                addLine('AVAILABLE_PROJECTS:');
+                projects.forEach(p => {
+                    addLine(` - <span class="project-item" onclick="navigate('${p.id}')">${p.id}</span> [${p.name}]`);
+                });
+                addLine('Type the name of a project to launch it.');
+            } else if (cmd === 'clear') {
+                output.innerHTML = '';
+            } else if (projects.some(p => p.id === cmd)) {
+                navigate(cmd);
+            } else if (cmd !== '') {
+                addLine(`'${cmd}' is not recognized as an internal or external command, operable program or batch file.`);
+                addLine('Try typing "help" for a list of commands.');
+            }
+        }
+
+        function navigate(projectId) {
+            addLine(`Launching ${projectId}...`, 'accent');
+            setTimeout(() => {
+                window.location.href = `./${projectId}/index.html`;
+            }, 500);
+        }
+    </script>
+</body>
+</html>
