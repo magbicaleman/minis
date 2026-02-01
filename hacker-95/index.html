@@ -259,6 +259,122 @@
 
       canvas {
         display: block;
+        touch-action: none;
+      }
+
+      #mobile-controls {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        display: none;
+        font-family: "Trebuchet MS", "Lucida Grande", sans-serif;
+      }
+
+      body.touch-active #mobile-controls {
+        display: block;
+      }
+
+      .mobile-joystick {
+        position: absolute;
+        left: 18px;
+        bottom: 18px;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        border: 1px solid var(--ui-border);
+        background: rgba(5, 10, 18, 0.35);
+        box-shadow: inset 0 0 20px rgba(64, 120, 255, 0.25);
+        pointer-events: auto;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .mobile-joystick .stick {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 54px;
+        height: 54px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: rgba(127, 241, 255, 0.25);
+        border: 1px solid rgba(127, 241, 255, 0.6);
+        box-shadow: 0 0 16px rgba(127, 241, 255, 0.25);
+        pointer-events: none;
+      }
+
+      .mobile-vertical {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        width: 92px;
+        height: 180px;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 12px;
+        pointer-events: auto;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .mobile-button,
+      .mobile-menu {
+        border-radius: 12px;
+        border: 1px solid rgba(127, 241, 255, 0.6);
+        background: rgba(12, 22, 38, 0.85);
+        color: var(--accent);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 11px;
+        padding: 10px 8px;
+        pointer-events: auto;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .mobile-button:active,
+      .mobile-menu:active {
+        background: rgba(30, 60, 96, 0.9);
+      }
+
+      .mobile-menu {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+      }
+
+      @media (max-width: 720px) {
+        #panel {
+          padding: 22px 20px;
+          max-width: 90vw;
+        }
+
+        #panel h1 {
+          font-size: 22px;
+        }
+
+        #panel p {
+          font-size: 12px;
+        }
+
+        #speed-control {
+          font-size: 11px;
+        }
+
+        #hud {
+          left: 12px;
+          bottom: 12px;
+        }
+
+        #status-bar {
+          right: 12px;
+          bottom: 12px;
+        }
       }
     </style>
   </head>
@@ -267,8 +383,10 @@
     <div id="overlay">
       <div id="panel">
         <h1>City of Text</h1>
-        <p>Click to jack in. WASD to fly. Mouse to look.</p>
-        <p>Press ESC to release pointer.</p>
+        <p id="instruction-primary">
+          Click to jack in. WASD to fly. Mouse to look.
+        </p>
+        <p id="instruction-secondary">Press ESC to release pointer.</p>
         <div id="speed-control">
           <label for="speed"
             >Travel speed: <span id="speed-value">352</span></label
@@ -408,6 +526,17 @@
       STATUS: STANDBY
     </div>
 
+    <div id="mobile-controls" aria-hidden="true">
+      <button id="touch-menu" class="mobile-menu" type="button">Menu</button>
+      <div id="move-joystick" class="mobile-joystick">
+        <div class="stick"></div>
+      </div>
+      <div class="mobile-vertical">
+        <button id="ascend" class="mobile-button" type="button">Up</button>
+        <button id="descend" class="mobile-button" type="button">Down</button>
+      </div>
+    </div>
+
     <script type="importmap">
       {
         "imports": {
@@ -475,9 +604,58 @@
       }
 
       const controls = new PointerLockControls(camera, document.body);
+      camera.rotation.order = "YXZ";
+
+      const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+      const hasTouch = navigator.maxTouchPoints > 0;
+      const isTouchDevice = isCoarsePointer || (hasTouch && window.innerWidth < 900);
+      const pointerLockSupported =
+        typeof document.body.requestPointerLock === "function" &&
+        "pointerLockElement" in document;
+      const usePointerLock = pointerLockSupported && !isTouchDevice;
+      const dragLookMode = !usePointerLock;
+      const touchMode = isTouchDevice;
 
       const overlay = document.getElementById("overlay");
       const enterButton = document.getElementById("enter");
+      const instructionPrimary = document.getElementById("instruction-primary");
+      const instructionSecondary = document.getElementById(
+        "instruction-secondary",
+      );
+
+      if (touchMode) {
+        if (instructionPrimary) {
+          instructionPrimary.textContent =
+            "Tap to jack in. Drag to look. Use the left pad to move.";
+        }
+        if (instructionSecondary) {
+          instructionSecondary.textContent =
+            "Hold UP or DOWN to rise or descend. Tap MENU for settings.";
+        }
+      } else if (!usePointerLock) {
+        if (instructionPrimary) {
+          instructionPrimary.textContent =
+            "Click to jack in. Drag to look. WASD to fly.";
+        }
+        if (instructionSecondary) {
+          instructionSecondary.textContent = "Press ESC to show the menu.";
+        }
+      }
+
+      let isEngaged = false;
+      function setEngaged(active) {
+        isEngaged = active;
+        if (active) {
+          document.body.classList.add("pointer-locked");
+          if (touchMode) document.body.classList.add("touch-active");
+          if (overlay) overlay.style.display = "none";
+        } else {
+          document.body.classList.remove("pointer-locked");
+          document.body.classList.remove("touch-active");
+          if (overlay) overlay.style.display = "grid";
+          if (touchMode) releaseTouchControls();
+        }
+      }
       const speedInput = document.getElementById("speed");
       const speedValue = document.getElementById("speed-value");
       let travelSpeed = Number(speedInput?.value) || 352;
@@ -542,7 +720,14 @@
           generateCity();
           cityGenerated = true;
         }
-        controls.lock();
+        if (usePointerLock) {
+          controls.lock();
+        } else {
+          if (!isEngaged) {
+            setEngaged(true);
+            addLogEntry("SECURE_LINE_ESTABLISHED");
+          }
+        }
       });
 
       // Add event listeners to checkboxes for live updates in debug mode
@@ -573,13 +758,11 @@
       }
 
       controls.addEventListener("lock", () => {
-        document.body.classList.add("pointer-locked");
-        overlay.style.display = "none";
+        setEngaged(true);
         addLogEntry("SECURE_LINE_ESTABLISHED");
       });
       controls.addEventListener("unlock", () => {
-        document.body.classList.remove("pointer-locked");
-        overlay.style.display = "grid";
+        setEngaged(false);
         addLogEntry("CONNECTION_TERMINATED");
       });
 
@@ -595,6 +778,192 @@
           terminalLog.removeChild(terminalLog.children[0]);
         }
       }
+
+      const bank = {
+        current: 0,
+        target: 0,
+        input: 0,
+      };
+
+      const touchMenuButton = document.getElementById("touch-menu");
+      const moveJoystick = document.getElementById("move-joystick");
+      const moveStick = moveJoystick?.querySelector(".stick");
+      const ascendButton = document.getElementById("ascend");
+      const descendButton = document.getElementById("descend");
+
+      const touchMove = new THREE.Vector2(0, 0);
+      let touchVertical = 0;
+      let ascendActive = false;
+      let descendActive = false;
+
+      function updateTouchVertical() {
+        touchVertical = (ascendActive ? 1 : 0) + (descendActive ? -1 : 0);
+      }
+
+      function releaseTouchControls() {
+        touchMove.set(0, 0);
+        touchVertical = 0;
+        ascendActive = false;
+        descendActive = false;
+        if (moveStick) {
+          moveStick.style.transform = "translate(-50%, -50%)";
+        }
+      }
+
+      if (touchMenuButton) {
+        touchMenuButton.addEventListener("click", () => {
+          if (isEngaged) {
+            setEngaged(false);
+            releaseTouchControls();
+            addLogEntry("CONNECTION_TERMINATED");
+          }
+        });
+      }
+
+      if (moveJoystick) {
+        const joystickState = {
+          active: false,
+          pointerId: null,
+          centerX: 0,
+          centerY: 0,
+          radius: 46,
+        };
+
+        const updateCenter = () => {
+          const rect = moveJoystick.getBoundingClientRect();
+          joystickState.centerX = rect.left + rect.width / 2;
+          joystickState.centerY = rect.top + rect.height / 2;
+          joystickState.radius = rect.width * 0.35;
+        };
+
+        const updateStick = (x, y) => {
+          if (!moveStick) return;
+          moveStick.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+        };
+
+        moveJoystick.addEventListener("pointerdown", (event) => {
+          if (!touchMode) return;
+          event.preventDefault();
+          event.stopPropagation();
+          updateCenter();
+          joystickState.active = true;
+          joystickState.pointerId = event.pointerId;
+          moveJoystick.setPointerCapture(event.pointerId);
+        });
+
+        moveJoystick.addEventListener("pointermove", (event) => {
+          if (!joystickState.active || event.pointerId !== joystickState.pointerId)
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          const dx = event.clientX - joystickState.centerX;
+          const dy = event.clientY - joystickState.centerY;
+          const dist = Math.hypot(dx, dy) || 1;
+          const max = joystickState.radius;
+          const scale = dist > max ? max / dist : 1;
+          const clampedX = dx * scale;
+          const clampedY = dy * scale;
+          updateStick(clampedX, clampedY);
+          touchMove.set(clampedX / max, -clampedY / max);
+        });
+
+        const endJoystick = (event) => {
+          if (event && event.pointerId !== joystickState.pointerId) return;
+          joystickState.active = false;
+          joystickState.pointerId = null;
+          touchMove.set(0, 0);
+          updateStick(0, 0);
+        };
+
+        moveJoystick.addEventListener("pointerup", endJoystick);
+        moveJoystick.addEventListener("pointercancel", endJoystick);
+        moveJoystick.addEventListener("pointerleave", endJoystick);
+      }
+
+      const handleVerticalButton = (button, direction) => {
+        if (!button) return;
+        const activate = (event) => {
+          if (!touchMode) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (direction > 0) {
+            ascendActive = true;
+          } else {
+            descendActive = true;
+          }
+          updateTouchVertical();
+        };
+        const deactivate = (event) => {
+          if (!touchMode) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (direction > 0) {
+            ascendActive = false;
+          } else {
+            descendActive = false;
+          }
+          updateTouchVertical();
+        };
+        button.addEventListener("pointerdown", activate);
+        button.addEventListener("pointerup", deactivate);
+        button.addEventListener("pointercancel", deactivate);
+        button.addEventListener("pointerleave", deactivate);
+      };
+
+      handleVerticalButton(ascendButton, 1);
+      handleVerticalButton(descendButton, -1);
+
+      const touchLookState = {
+        active: false,
+        pointerId: null,
+        lastX: 0,
+        lastY: 0,
+      };
+      const touchEuler = new THREE.Euler(0, 0, 0, "YXZ");
+      let touchYaw = camera.rotation.y;
+      let touchPitch = camera.rotation.x;
+
+      renderer.domElement.addEventListener("pointerdown", (event) => {
+        if (!dragLookMode || !isEngaged) return;
+        if (event.pointerType === "mouse" && !touchMode) {
+          event.preventDefault();
+        }
+        if (event.pointerType === "touch" || event.pointerType === "mouse") {
+          if (event.target !== renderer.domElement) return;
+          touchLookState.active = true;
+          touchLookState.pointerId = event.pointerId;
+          touchLookState.lastX = event.clientX;
+          touchLookState.lastY = event.clientY;
+          renderer.domElement.setPointerCapture(event.pointerId);
+        }
+      });
+
+      renderer.domElement.addEventListener("pointermove", (event) => {
+        if (!touchLookState.active || event.pointerId !== touchLookState.pointerId)
+          return;
+        const dx = event.clientX - touchLookState.lastX;
+        const dy = event.clientY - touchLookState.lastY;
+        touchLookState.lastX = event.clientX;
+        touchLookState.lastY = event.clientY;
+
+        const sensitivity = touchMode ? 0.004 : 0.003;
+        touchYaw -= dx * sensitivity;
+        touchPitch -= dy * sensitivity;
+        touchPitch = THREE.MathUtils.clamp(touchPitch, -1.45, 1.45);
+
+        touchEuler.set(touchPitch, touchYaw, 0);
+        camera.quaternion.setFromEuler(touchEuler);
+        bank.input = THREE.MathUtils.clamp(-dx * 0.0018, -0.22, 0.22);
+      });
+
+      const stopTouchLook = (event) => {
+        if (event && event.pointerId !== touchLookState.pointerId) return;
+        touchLookState.active = false;
+        touchLookState.pointerId = null;
+      };
+
+      renderer.domElement.addEventListener("pointerup", stopTouchLook);
+      renderer.domElement.addEventListener("pointercancel", stopTouchLook);
 
       function applyDebugState() {
         const state = getDebugState();
@@ -1657,11 +2026,6 @@
       const velocity = new THREE.Vector3();
       const direction = new THREE.Vector3();
       const drift = new THREE.Vector3();
-      const bank = {
-        current: 0,
-        target: 0,
-        input: 0,
-      };
       const viewDir = new THREE.Vector3();
       const rollAxis = new THREE.Vector3(0, 0, 1);
       const rollQuat = new THREE.Quaternion();
@@ -1736,12 +2100,16 @@
         const delta = Math.min((time - lastTime) / 1000, 0.1); // Cap delta to prevent huge jumps
         lastTime = time;
 
-        direction.set(
-          Number(keys.right) - Number(keys.left),
-          0,
-          Number(keys.forward) - Number(keys.backward),
-        );
-        direction.normalize();
+        const inputX = touchMode
+          ? touchMove.x
+          : Number(keys.right) - Number(keys.left);
+        const inputZ = touchMode
+          ? touchMove.y
+          : Number(keys.forward) - Number(keys.backward);
+        direction.set(inputX, 0, inputZ);
+        if (direction.lengthSq() > 1) {
+          direction.normalize();
+        }
 
         // Movement speed
         const speed = travelSpeed;
@@ -1774,12 +2142,17 @@
         const friction = Math.pow(frictionBase, delta * 60);
         velocity.multiplyScalar(friction);
 
-        if (controls.isLocked) {
-          // Vertical drift follows cursor pitch
-          camera.getWorldDirection(viewDir);
+        if (isEngaged) {
           const climbSpeed = travelSpeed * 0.45;
-          const targetVy =
-            THREE.MathUtils.clamp(viewDir.y, -0.9, 0.9) * climbSpeed;
+          let climbInput = 0;
+          if (touchMode) {
+            climbInput = touchVertical;
+          } else {
+            // Vertical drift follows cursor pitch
+            camera.getWorldDirection(viewDir);
+            climbInput = THREE.MathUtils.clamp(viewDir.y, -0.9, 0.9);
+          }
+          const targetVy = climbInput * climbSpeed;
           velocity.y += (targetVy - velocity.y) * 0.08;
 
           controls.moveRight(velocity.x * delta + drift.x * delta);
