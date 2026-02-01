@@ -1527,8 +1527,19 @@
       // Floor Setup - Custom Tiled Texture
       const floorSize = cityExtent;
       const textureLoader = new THREE.TextureLoader();
+      const basePath = (() => {
+        const path = window.location.pathname;
+        if (/\/[^/]+\.[a-z0-9]+$/i.test(path)) {
+          return path.replace(/\/[^/]+\.[a-z0-9]+$/i, "/");
+        }
+        return path.endsWith("/") ? path : `${path}/`;
+      })();
+      const floorTextureUrl = new URL(
+        "assets/image.png",
+        `${window.location.origin}${basePath}`,
+      );
       const circuitFloorTexture = textureLoader.load(
-        "/hacker-95/assets/image.png",
+        floorTextureUrl.href,
         () => console.log("Floor texture loaded successfully."),
         undefined,
         (err) => console.error("Error loading floor texture:", err),
