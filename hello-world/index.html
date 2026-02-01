@@ -1,0 +1,1361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gibson City of Text</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ui-bg: rgba(8, 12, 20, 0.72);
+        --ui-border: rgba(80, 140, 220, 0.35);
+        --ui-text: #d7e6ff;
+        --accent: #7ff1ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        font-family:
+          "Impact", "Haettenschweiler", "Franklin Gothic Bold", sans-serif;
+      }
+
+      #overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(
+          circle at top,
+          rgba(16, 36, 60, 0.5),
+          rgba(0, 0, 0, 0.9)
+        );
+        color: var(--ui-text);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        z-index: 2;
+      }
+
+      #panel {
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-border);
+        padding: 28px 32px;
+        max-width: 520px;
+        text-align: center;
+        box-shadow: 0 0 40px rgba(96, 180, 255, 0.18);
+      }
+
+      #panel h1 {
+        margin: 0 0 10px;
+        font-size: 28px;
+        color: var(--accent);
+      }
+
+      #panel p {
+        margin: 8px 0;
+        font-size: 13px;
+        font-family: "Trebuchet MS", "Lucida Grande", sans-serif;
+        text-transform: none;
+        letter-spacing: 0.02em;
+        line-height: 1.5;
+      }
+
+      #panel button {
+        margin-top: 18px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        border: 1px solid rgba(127, 241, 255, 0.6);
+        background: rgba(12, 22, 38, 0.85);
+        color: var(--accent);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      #speed-control {
+        margin-top: 16px;
+        display: grid;
+        gap: 8px;
+        font-family: "Trebuchet MS", "Lucida Grande", sans-serif;
+        text-transform: none;
+        letter-spacing: 0.04em;
+        font-size: 12px;
+      }
+
+      #speed-control input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      #debug-controls {
+        display: none;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px dashed var(--ui-border);
+        text-align: left;
+        font-family: "Trebuchet MS", sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+      }
+
+      body.debug-active #debug-controls {
+        display: block;
+      }
+
+      .debug-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        cursor: pointer;
+      }
+
+      .debug-row input {
+        accent-color: var(--accent);
+      }
+
+      #hud {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        color: var(--accent);
+        font-family: "Courier New", monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        z-index: 10;
+        pointer-events: none;
+        display: none; /* Only show when locked */
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      body.pointer-locked #hud {
+        display: flex;
+      }
+
+      #terminal-log {
+        background: rgba(0, 5, 12, 0.4);
+        padding: 8px;
+        border-left: 2px solid var(--accent);
+        max-height: 120px;
+        overflow: hidden;
+        opacity: 0.85;
+      }
+
+      .log-entry {
+        margin-bottom: 3px;
+        animation: typewriter 0.2s ease-out;
+      }
+
+      @keyframes typewriter {
+        from { opacity: 0; transform: translateX(-4px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+
+      #scanning-hud {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        pointer-events: none;
+        z-index: 1;
+        transition: all 0.3s ease;
+        display: none;
+        opacity: 0.4;
+      }
+
+      body.pointer-locked #scanning-hud {
+        display: block;
+      }
+
+      .bracket {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        border: 1px solid var(--accent);
+      }
+
+      #bracket-tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+      #bracket-tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+      #bracket-bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+      #bracket-br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+      #status-bar {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        font-family: "Courier New", monospace;
+        font-size: 10px;
+        color: var(--accent);
+        text-align: right;
+        letter-spacing: 0.15em;
+        opacity: 0.7;
+        pointer-events: none;
+        display: none;
+      }
+      body.pointer-locked #status-bar {
+        display: block;
+      }
+
+      .heist-msg p { font-size: 14px; opacity: 0.8; margin-top: 10px; }
+
+      /* Scanlines effect */
+      #scanlines {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0),
+          rgba(255, 255, 255, 0) 50%,
+          rgba(0, 0, 0, 0.1) 50%,
+          rgba(0, 0, 0, 0.1)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scanlines"></div>
+    <div id="overlay">
+      <div id="panel">
+        <h1>City of Text</h1>
+        <p>Click to jack in. WASD to fly. Mouse to look.</p>
+        <p>Press ESC to release pointer.</p>
+        <div id="speed-control">
+          <label for="speed">Travel speed: <span id="speed-value">120</span></label>
+          <input id="speed" type="range" min="20" max="500" step="1" value="120" />
+        </div>
+        <div id="debug-controls">
+          <div style="margin-bottom: 8px; color: var(--accent); font-weight: bold;">DEBUG DIAGNOSTICS:</div>
+          <label class="debug-row"><input type="checkbox" id="check-noGlyph"> Disable Glyph Textures</label>
+          <label class="debug-row"><input type="checkbox" id="check-noGlass"> Disable Glass Texture</label>
+          <label class="debug-row"><input type="checkbox" id="check-noCorners"> Disable Corner Edges</label>
+          <label class="debug-row"><input type="checkbox" id="check-noFloorGlow"> Disable Floor Pads</label>
+          <div class="debug-row" style="flex-direction: column; align-items: flex-start; margin-top: 4px;">
+            <label for="pad-intensity" style="font-size: 0.8em; opacity: 0.8; margin-bottom: 2px;">Pad Glow Intensity: <span id="pad-intensity-value">1.0</span></label>
+            <input id="pad-intensity" type="range" min="0" max="1" step="0.05" value="1.0" style="width: 100%; height: 4px;" />
+          </div>
+          <label class="debug-row"><input type="checkbox" id="check-noTowerMesh"> Disable Main Building Mesh</label>
+        </div>
+        <button id="enter">Engage Gibson</button>
+      </div>
+    </div>
+
+    <div id="hud">
+      <div id="terminal-log">
+        <div class="log-entry">> GIBSON_MAINFRAME_V2.0</div>
+        <div class="log-entry">> LINK_ESTABLISHED // FLYWAY_ACTIVE</div>
+      </div>
+      <div id="hud-label" style="font-weight: bold; opacity: 0.9; margin-top: 10px;">GIBSON MAINFRAME // SECTOR 7 // POINTER-LOCK ACTIVE</div>
+    </div>
+
+    <div id="scanning-hud">
+      <div id="bracket-tl" class="bracket"></div>
+      <div id="bracket-tr" class="bracket"></div>
+      <div id="bracket-bl" class="bracket"></div>
+      <div id="bracket-br" class="bracket"></div>
+    </div>
+
+    <div id="status-bar">
+      LATENCY: 14MS<br>
+      ENCRYPTION: AES-256<br>
+      STATUS: STANDBY
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x020408);
+      
+      // Atmospheric fog for depth (like the movie)
+      scene.fog = new THREE.FogExp2(0x0a1525, 0.012);
+
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        300,
+      );
+      camera.position.set(0, 8, 30);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace; // Correct color space for vivid neons
+      document.body.appendChild(renderer.domElement);
+
+      const debugMode = new URLSearchParams(window.location.search).has("debug");
+      if (debugMode) document.body.classList.add("debug-active");
+      
+      const params = new URLSearchParams(window.location.search);
+      const debugFlags = {
+        noGlyph: params.has("noGlyph"),
+        noGlass: params.has("noGlass"),
+        noCorners: params.has("noCorners"),
+        noFloorGlow: params.has("noFloorGlow"),
+        noTowerMesh: params.has("noTowerMesh")
+      };
+
+      // Pre-fill checkboxes if they exist
+      Object.keys(debugFlags).forEach(key => {
+        const ck = document.getElementById("check-" + key);
+        if (ck) ck.checked = debugFlags[key];
+      });
+
+      function getDebugState() {
+        const state = {};
+        Object.keys(debugFlags).forEach(key => {
+          const ck = document.getElementById("check-" + key);
+          state[key] = ck ? ck.checked : debugFlags[key];
+        });
+        const padInt = document.getElementById("pad-intensity");
+        state.padIntensity = padInt ? parseFloat(padInt.value) : 1.0;
+        return state;
+      }
+      
+      const controls = new PointerLockControls(camera, document.body);
+
+      const overlay = document.getElementById("overlay");
+      const enterButton = document.getElementById("enter");
+      const speedInput = document.getElementById("speed");
+      const speedValue = document.getElementById("speed-value");
+      let travelSpeed = Number(speedInput?.value) || 120;
+      if (speedValue) speedValue.textContent = String(travelSpeed);
+      speedInput?.addEventListener("input", (event) => {
+        const value = Number(event.target.value);
+        travelSpeed = value;
+        if (speedValue) speedValue.textContent = String(value);
+      });
+      let cityGenerated = false;
+      enterButton.addEventListener("click", () => {
+        // In debug mode, allow regeneration. Otherwise, only once.
+        if (!cityGenerated || debugMode) {
+          generateCity();
+          cityGenerated = true;
+        }
+        controls.lock();
+      });
+
+      // Add event listeners to checkboxes for live updates in debug mode
+      if (debugMode) {
+        ["noGlyph", "noGlass", "noCorners", "noFloorGlow", "noTowerMesh"].forEach(key => {
+          const ck = document.getElementById("check-" + key);
+          if (ck) {
+            ck.addEventListener('change', () => {
+              applyDebugState();
+            });
+          }
+        });
+        const padInt = document.getElementById("pad-intensity");
+        const padValDisplay = document.getElementById("pad-intensity-value");
+        if (padInt) {
+            padInt.addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (padValDisplay) padValDisplay.textContent = val;
+                applyDebugState();
+            });
+        }
+      }
+
+      controls.addEventListener('lock', () => {
+        document.body.classList.add('pointer-locked');
+        overlay.style.display = "none";
+        addLogEntry("SECURE_LINE_ESTABLISHED");
+      });
+      controls.addEventListener('unlock', () => {
+        document.body.classList.remove('pointer-locked');
+        overlay.style.display = "grid";
+        addLogEntry("CONNECTION_TERMINATED");
+      });
+
+      // Atmospheric Terminal Log
+      const terminalLog = document.getElementById("terminal-log");
+      function addLogEntry(msg) {
+        if (!terminalLog) return;
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.textContent = `> ${msg}`;
+        terminalLog.appendChild(entry);
+        if (terminalLog.children.length > 6) {
+          terminalLog.removeChild(terminalLog.children[0]);
+        }
+      }
+
+      function applyDebugState() {
+        const state = getDebugState();
+        console.log("Applying debug state:", state);
+        
+        towers.traverse(obj => {
+          if (obj.isMesh || obj.isLine || obj.isGroup) {
+            if (obj.name === "noGlyph") obj.visible = !state.noGlyph;
+            if (obj.name === "noCorners") obj.visible = !state.noCorners;
+            if (obj.name === "noFloorGlow" || obj.name === "noFloorGlowMask") {
+                obj.visible = !state.noFloorGlow;
+                if (obj.material) {
+                    if (obj.name === "noFloorGlowMask") {
+                        obj.material.opacity = state.padIntensity * 0.8;
+                    } else {
+                        const isPanel = obj.geometry.type === "PlaneGeometry" && obj.renderOrder === 11;
+                        obj.material.opacity = isPanel ? state.padIntensity : state.padIntensity * 0.7;
+                    }
+                }
+            }
+            
+            // Special handling for tower mesh itself
+            if (obj.name === "towerMesh") {
+              obj.visible = !state.noTowerMesh;
+              // Toggle glass texture if needed
+              if (obj.material && obj.material.map) {
+                obj.material.map.visible = !state.noGlass; // This doesn't work directly, need to swap map
+              }
+            }
+          }
+        });
+      }
+
+
+      // Dimmer ambient for moodier look
+      const ambient = new THREE.AmbientLight(0x0a1830, 0.5);
+      scene.add(ambient);
+
+      // Main cyan light (stronger)
+      const pointA = new THREE.PointLight(0x2ad0ff, 1.2, 250);
+      pointA.position.set(30, 50, 20);
+      scene.add(pointA);
+
+      // Secondary blue-purple light (subtle, not pink)
+      const pointB = new THREE.PointLight(0x4060ff, 0.6, 200);
+      pointB.position.set(-40, 30, -30);
+      scene.add(pointB);
+      
+      // Additional depth light
+      const pointC = new THREE.PointLight(0x1a90cc, 0.5, 300);
+      pointC.position.set(0, 60, -50);
+      scene.add(pointC);
+
+      const gridSize = 18; // Larger city for the new density patterns
+      const spacing = 32;
+      const jitter = 4.5;
+      const towers = new THREE.Group();
+      towers.name = "towerGroup";
+      scene.add(towers);
+
+      const textureWidth = 256;
+      const textureHeight = 512;
+
+      function rgbaFromColor(color, alpha) {
+        const c = new THREE.Color(color);
+        const r = Math.round(c.r * 255);
+        const g = Math.round(c.g * 255);
+        const b = Math.round(c.b * 255);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function createCanvasTexture(drawFn) {
+        const canvas = document.createElement("canvas");
+        canvas.width = textureWidth;
+        canvas.height = textureHeight;
+        const ctx = canvas.getContext("2d");
+        drawFn(ctx, canvas.width, canvas.height);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(1, 1);
+        return texture;
+      }
+
+      function createProceduralEnvMap() {
+        const size = 512;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Dark sky base
+        ctx.fillStyle = "#020408";
+        ctx.fillRect(0, 0, size, size);
+
+        // Tech-glow "reflection points" 
+        for (let i = 0; i < 15; i++) {
+           const x = Math.random() * size;
+           const y = Math.random() * size;
+           const r = 30 + Math.random() * 120;
+           const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+           const col = i % 2 === 0 ? "rgba(64, 232, 255, 0.15)" : "rgba(128, 64, 255, 0.12)";
+           grad.addColorStop(0, col);
+           grad.addColorStop(1, "rgba(0,0,0,0)");
+           ctx.fillStyle = grad;
+           ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        return texture;
+      }
+
+      scene.environment = createProceduralEnvMap();
+
+      function generateMonolithBaseTexture(color) {
+        return createCanvasTexture((ctx, w, h) => {
+          // Dark matte metallic base
+          ctx.fillStyle = "#080a0f";
+          ctx.fillRect(0, 0, w, h);
+
+          // Dense vertical code columns (server-rack style)
+          for (let x = 4; x < w; x += 4) {
+             let y = 0;
+             while (y < h) {
+                const len = 2 + Math.random() * 12;
+                const isCode = Math.random() < 0.4;
+                ctx.fillStyle = isCode ? "rgba(65, 120, 255, 0.15)" : "rgba(30, 35, 45, 0.8)";
+                ctx.fillRect(x, y, 1.5, len);
+                y += len + 2;
+             }
+          }
+
+          // Subtle etched circuitry
+          ctx.strokeStyle = "rgba(100, 140, 255, 0.05)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 15; i++) {
+            const py = Math.random() * h;
+            ctx.beginPath();
+            ctx.moveTo(0, py);
+            ctx.lineTo(w, py);
+            ctx.stroke();
+          }
+        });
+      }
+
+      function generateGlassBaseTexture(color) {
+        return createCanvasTexture((ctx, w, h) => {
+          // Hazy/Milky holographic base
+          const gradient = ctx.createLinearGradient(0, 0, 0, h);
+          gradient.addColorStop(0, "rgba(80, 200, 255, 0.05)");
+          gradient.addColorStop(0.5, "rgba(120, 230, 255, 0.15)");
+          gradient.addColorStop(1, "rgba(80, 200, 255, 0.05)");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, w, h);
+
+          // Internal "data haze" / Volumetric artifacts
+          for (let i = 0; i < 60; i++) {
+             const x = Math.random() * w;
+             const y = Math.random() * h;
+             const blockW = 15 + Math.random() * 40;
+             const blockH = 2 + Math.random() * 6;
+             ctx.fillStyle = rgbaFromColor(color, 0.1);
+             ctx.fillRect(x, y, blockW, blockH);
+          }
+        });
+      }
+
+      function generateGlyphTexture(primary, accent, isMonolith = false) {
+        return createCanvasTexture((ctx, w, h) => {
+          ctx.clearRect(0, 0, w, h);
+          
+          // Much denser, smaller text for monoliths ("etched" look)
+          // Larger, glowing UI blocks for glass ("holographic")
+          const boxRows = isMonolith ? 28 : 14;
+          const boxCols = isMonolith ? 8 : 4;
+          const boxW = w / boxCols - 2;
+          const boxH = h / boxRows - 1;
+          
+          for (let row = 0; row < boxRows; row++) {
+            for (let col = 0; col < boxCols; col++) {
+              if (Math.random() < (isMonolith ? 0.85 : 0.6)) {
+                const x = col * (boxW + 2) + 1;
+                const y = row * (boxH + 1);
+                
+                const isBright = Math.random() < (isMonolith ? 0.05 : 0.2);
+                const opacity = isBright ? 0.9 : (isMonolith ? 0.15 : 0.4);
+                
+                // Fine vertical line
+                ctx.fillStyle = rgbaFromColor(primary, opacity);
+                ctx.fillRect(x, y, 1, boxH * 0.8);
+                
+                // Tiny code text
+                if (Math.random() < 0.7) {
+                    ctx.font = `${Math.floor(boxH * (isMonolith ? 0.65 : 0.8))}px 'Courier New', monospace`;
+                    ctx.fillStyle = rgbaFromColor(primary, isBright ? 1.0 : (isMonolith ? 0.3 : 0.6));
+                    const label = Math.random().toString(36).substring(2, 4).toUpperCase();
+                    ctx.fillText(label, x + 2, y + boxH * 0.7);
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function createTowerMaterial(archetype, color, texture) {
+        if (archetype === 'monolith') {
+          // Opaque Data Monoliths (Server-Slabs) - "Black Mirror" look
+          return new THREE.MeshStandardMaterial({
+            color: 0x000000, 
+            transparent: false,
+            roughness: 0.08, // Very sharp, shiny mirror finish
+            metalness: 1.0, // Maximum metalness for best reflections
+            emissive: new THREE.Color(0x1a0a25), // Subtle purple reflection
+            emissiveIntensity: 0.12,
+            map: texture,
+            side: THREE.DoubleSide,
+            depthWrite: true,
+            envMapIntensity: 1.5, // Boost reflection visibility
+          });
+        } else {
+          // Holographic Glass Towers (Volumetric UI)
+          return new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.45, // Semi-transparent
+            emissive: new THREE.Color(color), // Strong cyan/colored glow
+            emissiveIntensity: 1.1,
+            roughness: 0.05,
+            metalness: 0.1,
+            map: texture,
+            blending: THREE.AdditiveBlending, // Light passes through and scatters
+            side: THREE.DoubleSide,
+            depthWrite: false, 
+          });
+        }
+      }
+
+      // More unified cyan/blue palette like the movie
+      const palette = [0x40e8ff, 0x30c0e0, 0x50a0d0, 0x60d0f0, 0x2090b0];
+      const specialColors = [0x8040ff, 0x60f0c0]; // Purple accent, Teal accent
+
+      const textureSets = { monolith: {}, glass: {} };
+      palette.concat(specialColors).forEach((color) => {
+        const accent = new THREE.Color(color).offsetHSL(0.1, 0.1, 0.2);
+        
+        textureSets.monolith[color] = {
+           base: [generateMonolithBaseTexture(color)],
+           glyphs: [generateGlyphTexture(color, accent, true)]
+        };
+        
+        textureSets.glass[color] = {
+           base: [generateGlassBaseTexture(color)],
+           glyphs: [generateGlyphTexture(color, accent, false)]
+        };
+      });
+
+      // Create diffused light panel texture (soft center with color falloff)
+      function createLightPanelTexture(color) {
+        const size = 128;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const c = new THREE.Color(color);
+        const r = Math.round(c.r * 255);
+        const g = Math.round(c.g * 255);
+        const b = Math.round(c.b * 255);
+        
+        // Fill the entire area uniformly with slight alpha for glow layering
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.85)`;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Brighter inner border for high-tech look
+        ctx.strokeStyle = `rgba(${Math.min(255, r+60)}, ${Math.min(255, g+60)}, ${Math.min(255, b+60)}, 1)`;
+        ctx.lineWidth = 14; 
+        ctx.strokeRect(0, 0, size, size);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      // Create outer glow texture (soft radial bloom around the panel)
+      function createOuterGlowTexture(color) {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const center = size / 2;
+        const c = new THREE.Color(color);
+        const r = Math.round(c.r * 255);
+        const g = Math.round(c.g * 255);
+        const b = Math.round(c.b * 255);
+        
+        const gradient = ctx.createRadialGradient(center, center, 0, center, center, center * 0.9);
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.6)`);
+        gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, 0.15)`);
+        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      const circuit = {
+        size: 1024,
+        grid: 32,
+        traces: [],
+        pulses: [],
+      };
+
+
+      function generateTrace() {
+        // HAUL TRACES: Span the entire city from edge to edge
+        const points = [];
+        const edge = THREE.MathUtils.randInt(0, 3);
+        const gridW = circuit.size / circuit.grid;
+        
+        let x, y;
+        if (edge === 0) { x = 0; y = THREE.MathUtils.randInt(0, gridW) * circuit.grid; } // Left
+        else if (edge === 1) { x = circuit.size; y = THREE.MathUtils.randInt(0, gridW) * circuit.grid; } // Right
+        else if (edge === 2) { y = 0; x = THREE.MathUtils.randInt(0, gridW) * circuit.grid; } // Top
+        else { y = circuit.size; x = THREE.MathUtils.randInt(0, gridW) * circuit.grid; } // Bottom
+        
+        points.push({ x, y });
+
+        // Cross the city with a few turns
+        const steps = THREE.MathUtils.randInt(3, 6);
+        for (let i = 0; i < steps; i += 1) {
+          const dir = THREE.MathUtils.randInt(0, 3);
+          const length = THREE.MathUtils.randInt(8, 20) * circuit.grid;
+          if (dir === 0) x = Math.min(circuit.size, x + length);
+          if (dir === 1) x = Math.max(0, x - length);
+          if (dir === 2) y = Math.min(circuit.size, y + length);
+          if (dir === 3) y = Math.max(0, y - length);
+          points.push({ x, y });
+        }
+
+        const segments = [];
+        let total = 0;
+        for (let i = 0; i < points.length - 1; i += 1) {
+          const a = points[i];
+          const b = points[i + 1];
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          if (length > 0) {
+            segments.push({ a, b, length });
+            total += length;
+          }
+        }
+
+        if (segments.length === 0) {
+           // Fallback: create a single random segment if generation failed
+           const x1 = Math.random() * circuit.size;
+           const y1 = Math.random() * circuit.size;
+           const x2 = x1 + circuit.grid;
+           const y2 = y1;
+           segments.push({ a: { x: x1, y: y1 }, b: { x: x2, y: y2 }, length: circuit.grid });
+           total = circuit.grid;
+        }
+
+        return { points, segments, total };
+      }
+
+      for (let i = 0; i < 220; i += 1) { // More traces for density
+        circuit.traces.push(generateTrace());
+      }
+
+      function generateCity() {
+        const state = getDebugState();
+        console.log("Generating city with flags:", state);
+        
+        // Clear existing towers before re-generating
+        towers.clear();
+        for (let x = -gridSize; x <= gridSize; x += 1) {
+          for (let z = -gridSize; z <= gridSize; z += 1) {
+            // Skip center for "flyway"
+            if (Math.abs(x) < 2 && Math.abs(z) < 2) continue;
+
+            // 1. Structured Avenues: Every 8th line is a wide boulevard
+            const isAvenueX = x % 8 === 0;
+            const isAvenueZ = z % 8 === 0;
+            if (isAvenueX || isAvenueZ) {
+               // 90% chance to be empty, creating long straight paths
+               if (Math.random() < 0.9) continue;
+            }
+
+            // 2. District Pulse: Uses wave math to create denser "Downtowns" and sparse "Plazas"
+            // High value = Downtown, Low value = Outskirts/Plaza
+            const districtPulse = (Math.sin(x * 0.45) * Math.cos(z * 0.45)) + 0.5;
+            
+            // Base skip chance driven by the pulse (0.2 downtown to 0.9 outskirt)
+            let skipChance = THREE.MathUtils.lerp(0.85, 0.22, districtPulse);
+            
+            // Randomize skip factor further
+            if (Math.random() < skipChance) continue;
+
+            // Archetype Assignment (Rarer monoliths)
+            const isMonolith = Math.random() < 0.35;
+            const archetype = isMonolith ? 'monolith' : 'glass';
+
+            // Geometry: Both are now imposing and tall
+            let height, width, depth;
+            // Denser areas (downtown) get taller and wider buildings
+            const magnitude = THREE.MathUtils.lerp(0.8, 1.5, districtPulse);
+            height = (THREE.MathUtils.randFloat(35, 110) + (districtPulse * 45)) * magnitude;
+            
+            if (isMonolith) {
+              width = THREE.MathUtils.randFloat(8, 16) * magnitude;
+              depth = width * 0.8; 
+            } else {
+              width = THREE.MathUtils.randFloat(10, 18) * magnitude;
+              depth = width * THREE.MathUtils.randFloat(0.8, 1.2); 
+            }
+
+            const geo = new THREE.BoxGeometry(width, height, depth);
+
+          // Chance for special color
+          let color;
+          if (Math.random() < 0.02) {
+            color =
+              specialColors[Math.floor(Math.random() * specialColors.length)];
+          } else {
+            color = palette[Math.floor(Math.random() * palette.length)];
+          }
+
+          const archetypeSet = textureSets[archetype][color];
+          const baseTexture = archetypeSet.base[Math.floor(Math.random() * archetypeSet.base.length)];
+          const glyphTexture = archetypeSet.glyphs[Math.floor(Math.random() * archetypeSet.glyphs.length)];
+
+          // Use archetype material
+          const glass = createTowerMaterial(
+            archetype,
+            color,
+            baseTexture
+          );
+          const tower = new THREE.Mesh(geo, glass);
+          tower.name = "mainBuildingMesh";
+          tower.renderOrder = 3;
+          
+          // Interaction Metadata
+          const nodeId = (isMonolith ? "DATA_" : "VOID_") + THREE.MathUtils.randInt(100, 999);
+          tower.userData = { nodeId, archetype, isHacked: false };
+
+          // Position with overlap for density
+          tower.position.set(
+            x * spacing + THREE.MathUtils.randFloat(-jitter, jitter),
+            height / 2,
+            z * spacing + THREE.MathUtils.randFloat(-jitter, jitter),
+          );
+
+          // Glowing floor light pad (Only for holographic glass towers)
+          if (archetype === 'glass') {
+            const unifiedColor = 0x40e8ff; // Standardized Cyber Cyan for all pads
+            const panelColor = new THREE.Color(unifiedColor); 
+            const glowColor = new THREE.Color(unifiedColor);
+            
+            const maskGeo = new THREE.PlaneGeometry(width, depth);
+            const maskMat = new THREE.MeshBasicMaterial({
+              color: 0x010206, 
+              transparent: true,
+              opacity: state.padIntensity * 0.9, 
+              blending: THREE.NormalBlending,
+              depthWrite: false,
+              side: THREE.DoubleSide,
+            });
+            const mask = new THREE.Mesh(maskGeo, maskMat);
+            mask.rotation.x = -Math.PI / 2;
+            mask.position.y = -height / 2 + 0.02;
+            mask.renderOrder = 9;
+            mask.name = "noFloorGlowMask"; 
+            tower.add(mask);
+
+            const outerGlowSize = Math.max(width, depth) * 2.2;
+            const outerGlowTex = createOuterGlowTexture(glowColor);
+            const outerGlowMat = new THREE.MeshBasicMaterial({
+              map: outerGlowTex,
+              transparent: true,
+              opacity: state.padIntensity * 0.8, 
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              side: THREE.DoubleSide,
+            });
+            const outerGlow = new THREE.Mesh(new THREE.PlaneGeometry(outerGlowSize, outerGlowSize), outerGlowMat);
+            outerGlow.rotation.x = -Math.PI / 2;
+            outerGlow.position.y = -height / 2 + 0.05;
+            outerGlow.renderOrder = 10;
+            
+            const panelTex = createLightPanelTexture(panelColor);
+            const panelMat = new THREE.MeshBasicMaterial({
+              map: panelTex,
+              transparent: true,
+              opacity: state.padIntensity, 
+              blending: THREE.AdditiveBlending, 
+              depthWrite: false,
+              side: THREE.DoubleSide,
+            });
+            const panel = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), panelMat);
+            panel.rotation.x = -Math.PI / 2;
+            panel.position.y = -height / 2 + 0.1;
+            panel.renderOrder = 11;
+
+            outerGlow.name = "noFloorGlow";
+            panel.name = "noFloorGlow";
+            tower.add(outerGlow);
+            tower.add(panel);
+          }
+
+          // Face text panels (vibrant data layers)
+          const faceMat = new THREE.MeshBasicMaterial({
+            color: archetype === 'monolith' ? 0x6688aa : 0xccf0ff, // Subtler for monoliths
+            map: glyphTexture,
+            transparent: true,
+            opacity: archetype === 'monolith' ? 0.35 : 0.75, 
+            blending: archetype === 'monolith' ? THREE.NormalBlending : THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -1.5,
+            polygonOffsetUnits: -1.5,
+          });
+          const faceGroup = new THREE.Group();
+          faceGroup.renderOrder = 15; // Ensure text is top-most visible layer
+          const faceW = width * 0.92;
+          const faceH = height * 0.92;
+          const front = new THREE.Mesh(new THREE.PlaneGeometry(faceW, faceH), faceMat);
+          front.position.z = depth * 0.51;
+          faceGroup.add(front);
+          const back = new THREE.Mesh(new THREE.PlaneGeometry(faceW, faceH), faceMat);
+          back.position.z = -depth * 0.51;
+          back.rotation.y = Math.PI;
+          faceGroup.add(back);
+          const sideW = depth * 0.92;
+          const side = new THREE.Mesh(new THREE.PlaneGeometry(sideW, faceH), faceMat);
+          side.position.x = width * 0.51;
+          side.rotation.y = -Math.PI / 2;
+          faceGroup.add(side);
+          const sideB = new THREE.Mesh(new THREE.PlaneGeometry(sideW, faceH), faceMat);
+          sideB.position.x = -width * 0.51;
+          sideB.rotation.y = Math.PI / 2;
+          faceGroup.add(sideB);
+          faceGroup.name = "noGlyph";
+          tower.add(faceGroup);
+
+          // Vertical-only corner edges (like the movie - no horizontal rings)
+          const halfW = width / 2;
+          const halfD = depth / 2;
+          const halfH = height / 2;
+          const cornerPoints = [
+            // 4 vertical lines at each corner
+            new THREE.Vector3(-halfW, -halfH, -halfD), new THREE.Vector3(-halfW, halfH, -halfD),
+            new THREE.Vector3(halfW, -halfH, -halfD), new THREE.Vector3(halfW, halfH, -halfD),
+            new THREE.Vector3(-halfW, -halfH, halfD), new THREE.Vector3(-halfW, halfH, halfD),
+            new THREE.Vector3(halfW, -halfH, halfD), new THREE.Vector3(halfW, halfH, halfD),
+          ];
+          const cornerGeo = new THREE.BufferGeometry().setFromPoints(cornerPoints);
+          const cornerMat = new THREE.LineBasicMaterial({
+            color: new THREE.Color(color).offsetHSL(0.02, 0.1, 0.25),
+            transparent: true,
+            opacity: 0.7,
+          });
+          const cornerLines = new THREE.LineSegments(cornerGeo, cornerMat);
+          cornerLines.name = "noCorners";
+          tower.add(cornerLines);
+
+          towers.add(tower);
+        }
+      }
+      applyDebugState();
+    }
+
+    function revealMasterCore() {
+       if (coreRevealed) return;
+       coreRevealed = true;
+       addLogEntry("MASTER_CORE_LOCATED");
+       addLogEntry("V_COORDS_UPLOADING...");
+
+       // Create the Master Core
+       const height = 150;
+       const width = 12;
+       const depth = 12;
+       const geo = new THREE.BoxGeometry(width, height, depth);
+       const mat = new THREE.MeshStandardMaterial({
+          color: 0xffd700,
+          emissive: 0xffaa00,
+          emissiveIntensity: 2.0,
+          roughness: 0.1,
+          metalness: 1.0,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending
+       });
+       
+       const core = new THREE.Mesh(geo, mat);
+       // Position it in the distance, far from center
+       core.position.set(120, height/2, -120);
+       core.name = "mainBuildingMesh";
+       core.userData = { isMasterCore: true, nodeId: "GIBSON_PRIME" };
+       core.renderOrder = 20;
+       
+       towers.add(core);
+       masterCoreObj = core;
+
+       // Dynamic camera look or just a hint
+       addLogEntry("LOOK FOR THE GOLDEN MONOLITH");
+    }
+
+      function createCometHeadTexture() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 128; // Higher res
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        const center = canvas.width / 2;
+        const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 1)"); // White hot point
+        gradient.addColorStop(0.2, "rgba(200, 240, 255, 0.9)"); // Cyan core
+        gradient.addColorStop(0.5, "rgba(100, 200, 255, 0.2)"); // Bloom
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      function createCometTailTexture() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 1)"); // White hot tip at the FRONT (U=0)
+        gradient.addColorStop(0.05, "rgba(200, 245, 255, 0.8)"); // Crisp leading edge
+        gradient.addColorStop(0.5, "rgba(100, 200, 255, 0.4)"); // Blue diffusion
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0)"); // Fade to transparent at the REAR
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add streak lines (trailing away)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+        for(let i=0; i<3; i++) {
+            ctx.fillRect(0, canvas.height * (0.3 + i*0.2), canvas.width * 0.3, 1.5);
+        }
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      // Floor Setup - Custom Tiled Texture
+      const floorSize = 1200;
+      const textureLoader = new THREE.TextureLoader();
+      const circuitFloorTexture = textureLoader.load(
+        'assets/image.png',
+        () => console.log("Floor texture loaded successfully."),
+        undefined,
+        (err) => console.error("Error loading floor texture:", err)
+      );
+      circuitFloorTexture.wrapS = THREE.RepeatWrapping;
+      circuitFloorTexture.wrapT = THREE.RepeatWrapping;
+      circuitFloorTexture.repeat.set(22, 22);
+      
+      if (renderer.capabilities && typeof renderer.capabilities.getMaxAnisotropy === 'function') {
+        circuitFloorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      }
+      
+      circuitFloorTexture.colorSpace = THREE.SRGBColorSpace;
+      
+      const circuitFloor = new THREE.Mesh(
+        new THREE.PlaneGeometry(floorSize, floorSize),
+        new THREE.MeshBasicMaterial({
+          map: circuitFloorTexture,
+        }),
+      );
+      circuitFloor.rotation.x = -Math.PI / 2;
+      circuitFloor.position.y = -0.1;
+      circuitFloor.renderOrder = -1; // Force floor to render first so highlights always stay on top
+      scene.add(circuitFloor);
+
+      const enableComets = true;
+      const pulseLevels = [0.25, 3, 7, 12, 18, 28, 40]; // Varied cinematic heights
+      const cometGroup = new THREE.Group();
+      cometGroup.visible = enableComets;
+      scene.add(cometGroup);
+      const headTexture = createCometHeadTexture();
+      const tailTexture = createCometTailTexture();
+      const tailGeometry = new THREE.PlaneGeometry(1, 1);
+      tailGeometry.rotateX(-Math.PI / 2);
+
+      function createComet(color, size) {
+        const group = new THREE.Group();
+        
+        // Head Bloom (billboard sprite for glow)
+        const headMaterial = new THREE.SpriteMaterial({
+          map: headTexture,
+          color: color,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const head = new THREE.Sprite(headMaterial);
+        head.scale.set(size * 1.5, size * 1.5, 1);
+
+        // Volumetric tail (Two intersecting planes - cross shape)
+        const tailMat = new THREE.MeshBasicMaterial({
+          map: tailTexture,
+          color: color,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        
+        const tailGeo = new THREE.PlaneGeometry(1, 1);
+        
+        const tail1 = new THREE.Mesh(tailGeo, tailMat);
+        tail1.rotation.y = Math.PI / 2;
+        
+        const tail2 = new THREE.Mesh(tailGeo, tailMat);
+        tail2.rotation.y = Math.PI / 2;
+        tail2.rotation.z = Math.PI / 2;
+        
+        const tailGroup = new THREE.Group();
+        tailGroup.add(tail1);
+        tailGroup.add(tail2);
+        
+        group.add(tailGroup);
+        group.add(head);
+        cometGroup.add(group);
+        return { group, head, tail: tailGroup };
+      }
+
+      if (enableComets) {
+        // Bullet streaks - fast, short, and sparse
+        // Reduced to 8 for better performance
+        for (let i = 0; i < 8; i += 1) {
+          const color =
+            Math.random() > 0.5 ? new THREE.Color(0x64f0ff) : new THREE.Color(0xdc78ff);
+          const size = THREE.MathUtils.randFloat(0.8, 2.2);
+          const comet = createComet(color, size);
+          circuit.pulses.push({
+            trace:
+              circuit.traces[Math.floor(Math.random() * circuit.traces.length)],
+            t: Math.random(),
+            speed: THREE.MathUtils.randFloat(0.2, 0.45), 
+            color,
+            size,
+            height: pulseLevels[Math.floor(Math.random() * pulseLevels.length)],
+            comet,
+          });
+        }
+      }
+
+      const velocity = new THREE.Vector3();
+      const direction = new THREE.Vector3();
+      const drift = new THREE.Vector3();
+      const bank = {
+        current: 0,
+        target: 0,
+        input: 0,
+      };
+      const viewDir = new THREE.Vector3();
+      const rollAxis = new THREE.Vector3(0, 0, 1);
+      const rollQuat = new THREE.Quaternion();
+      const rollQuatInverse = new THREE.Quaternion();
+      const keys = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+      };
+
+      function onKeyDown(event) {
+        if (event.code === "Escape" && isConsoleOpen) {
+           closeConsole();
+           return;
+        }
+        switch (event.code) {
+          case "KeyW":
+            keys.forward = true;
+            break;
+          case "KeyS":
+            keys.backward = true;
+            break;
+          case "KeyA":
+            keys.left = true;
+            break;
+          case "KeyD":
+            keys.right = true;
+            break;
+        }
+      }
+
+      function onKeyUp(event) {
+        switch (event.code) {
+          case "KeyW":
+            keys.forward = false;
+            break;
+          case "KeyS":
+            keys.backward = false;
+            break;
+          case "KeyA":
+            keys.left = false;
+            break;
+          case "KeyD":
+            keys.right = false;
+            break;
+        }
+      }
+
+      document.addEventListener("keydown", onKeyDown);
+      document.addEventListener("keyup", onKeyUp);
+      document.addEventListener("mousemove", (event) => {
+        if (!controls.isLocked) return;
+        bank.input = THREE.MathUtils.clamp(
+          -event.movementX * 0.0018,
+          -0.22,
+          0.22,
+        );
+      });
+
+      let lastTime = performance.now();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now();
+        const delta = Math.min((time - lastTime) / 1000, 0.1); // Cap delta to prevent huge jumps
+        lastTime = time;
+
+        direction.set(
+          Number(keys.right) - Number(keys.left),
+          0,
+          Number(keys.forward) - Number(keys.backward),
+        );
+        direction.normalize();
+
+        // Movement speed
+        const speed = travelSpeed;
+        velocity.x += direction.x * speed * delta;
+        velocity.z += direction.z * speed * delta;
+
+        // Banking effect (Roll) based on strafe + mouse turn
+        const strafeRoll = -velocity.x * 0.014;
+        bank.target = THREE.MathUtils.clamp(
+          strafeRoll + bank.input,
+          -0.22,
+          0.22,
+        );
+        bank.current = THREE.MathUtils.lerp(bank.current, bank.target, delta * 6);
+        bank.input *= 0.85;
+
+        drift.set(
+          Math.sin(time * 0.0005) * 0.18,
+          Math.sin(time * 0.0007) * 0.04,
+          Math.cos(time * 0.0006) * 0.18,
+        );
+
+        // Frame-rate independent friction
+        // We want 0.92 friction per 1/60th of a second (original feel)
+        const frictionBase = 0.92;
+        const friction = Math.pow(frictionBase, delta * 60);
+        velocity.multiplyScalar(friction); 
+
+        if (controls.isLocked) {
+          // Vertical drift follows cursor pitch
+          camera.getWorldDirection(viewDir);
+          const climbSpeed = travelSpeed * 0.45;
+          const targetVy = THREE.MathUtils.clamp(viewDir.y, -0.9, 0.9) * climbSpeed;
+          velocity.y += (targetVy - velocity.y) * 0.08;
+
+          controls.moveRight(velocity.x * delta + drift.x * delta);
+          controls.moveForward(velocity.z * delta + drift.z * delta);
+          camera.position.y += velocity.y * delta + drift.y * delta;
+          // Keep above floor
+          if (camera.position.y < 2) camera.position.y = 2;
+        }
+
+        // Pulse Animation (3D comets)
+        if (enableComets) {
+          circuit.pulses.forEach((pulse) => {
+            pulse.t += pulse.speed * delta * 3;
+            if (pulse.t > 1) {
+              pulse.t = 0;
+              pulse.trace =
+                circuit.traces[Math.floor(Math.random() * circuit.traces.length)];
+              pulse.height = pulseLevels[Math.floor(Math.random() * pulseLevels.length)];
+            }
+
+            if (!pulse.trace || !pulse.trace.segments || pulse.trace.segments.length === 0) return;
+            
+            let distance = pulse.t * pulse.trace.total;
+            let point = pulse.trace.segments[0].a;
+            let directionVector = { x: 1, y: 0 };
+
+            for (const segment of pulse.trace.segments) {
+              if (distance <= segment.length) {
+                const ratio = distance / segment.length;
+                point = {
+                  x: segment.a.x + (segment.b.x - segment.a.x) * ratio,
+                  y: segment.a.y + (segment.b.y - segment.a.y) * ratio,
+                };
+                const dx = segment.b.x - segment.a.x;
+                const dy = segment.b.y - segment.a.y;
+                const len = Math.hypot(dx, dy) || 1;
+                directionVector = { x: dx / len, y: dy / len };
+                break;
+              }
+              distance -= segment.length;
+            }
+
+            // Proper world-space targeting for "Bullet" movement
+            const worldX = (point.x / circuit.size - 0.5) * floorSize;
+            const worldZ = (point.y / circuit.size - 0.5) * floorSize;
+
+            const comet = pulse.comet;
+            const targetPos = new THREE.Vector3(
+              ( (point.x + directionVector.x) / circuit.size - 0.5 ) * floorSize,
+              pulse.height,
+              ( (point.y + directionVector.y) / circuit.size - 0.5 ) * floorSize
+            );
+
+            const tailLength = pulse.size * 6 + pulse.speed * 85;
+            comet.group.position.set(worldX, pulse.height, worldZ);
+            comet.group.lookAt(targetPos); 
+            
+            // Tail stretches behind head
+            comet.tail.scale.set(pulse.size * 0.3, pulse.size * 0.3, tailLength);
+            comet.tail.position.z = tailLength / 2; 
+          });
+        }
+
+
+        rollQuat.setFromAxisAngle(rollAxis, bank.current);
+        rollQuatInverse.copy(rollQuat).invert();
+        camera.quaternion.multiply(rollQuat);
+        renderer.render(scene, camera);
+        camera.quaternion.multiply(rollQuatInverse);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
