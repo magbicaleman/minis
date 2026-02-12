@@ -553,6 +553,16 @@
       const HUD_GUTTER_PX = 64;
       const HUD_APPROACH_PX = 116;
       const onsetHistory = [];
+      let regimeCurrent = "drift";
+      let regimeHoldUntil = 0;
+      let regimeRollingEnergy = 0;
+      let regimeBaselineEnergy = 0;
+      let regimeLabel = "Drift";
+      const regimeBlend = {
+        drift: 1,
+        helix: 0,
+        surge: 0,
+      };
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -808,6 +818,50 @@
       const accentParticles = new THREE.Points(accentGeometry, accentMaterial);
       scene.add(accentParticles);
 
+      const backgroundPulseIndices = [];
+      for (let i = 0; i < particleCount; i += 1) {
+        const g = particleGroups[i];
+        if (g === 3 && Math.random() < 0.11) {
+          backgroundPulseIndices.push(i);
+        } else if (g === 2 && Math.random() < 0.035) {
+          backgroundPulseIndices.push(i);
+        }
+      }
+      const minBackgroundPulse = 420;
+      for (let i = 0; i < particleCount && backgroundPulseIndices.length < minBackgroundPulse; i += 1) {
+        if (particleGroups[i] === 3 && Math.random() < 0.22) {
+          backgroundPulseIndices.push(i);
+        }
+      }
+
+      const backgroundPulseCount = backgroundPulseIndices.length;
+      const backgroundPulsePositions = new Float32Array(backgroundPulseCount * 3);
+      const backgroundPulseColors = new Float32Array(backgroundPulseCount * 3);
+      const backgroundPulsePhase = new Float32Array(backgroundPulseCount);
+      for (let i = 0; i < backgroundPulseCount; i += 1) {
+        backgroundPulsePhase[i] = Math.random() * Math.PI * 2;
+      }
+      const backgroundPulseGeometry = new THREE.BufferGeometry();
+      const backgroundPulsePositionAttr = new THREE.BufferAttribute(backgroundPulsePositions, 3);
+      const backgroundPulseColorAttr = new THREE.BufferAttribute(backgroundPulseColors, 3);
+      backgroundPulsePositionAttr.setUsage(THREE.DynamicDrawUsage);
+      backgroundPulseColorAttr.setUsage(THREE.DynamicDrawUsage);
+      backgroundPulseGeometry.setAttribute("position", backgroundPulsePositionAttr);
+      backgroundPulseGeometry.setAttribute("color", backgroundPulseColorAttr);
+      const backgroundPulseMaterial = new THREE.PointsMaterial({
+        size: 0.12,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.56,
+        map: dotTexture,
+        alphaMap: dotTexture,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const backgroundPulsePoints = new THREE.Points(backgroundPulseGeometry, backgroundPulseMaterial);
+      scene.add(backgroundPulsePoints);
+
       const laserIndices = [];
       for (let i = 0; i < particleCount; i += 1) {
         const g = particleGroups[i];
@@ -1022,11 +1076,23 @@
         activeAnalysisSource = "capture";
       }
 
+      function resetMotionRegime() {
+        regimeCurrent = "drift";
+        regimeHoldUntil = 0;
+        regimeRollingEnergy = 0;
+        regimeBaselineEnergy = 0;
+        regimeLabel = "Drift";
+        regimeBlend.drift = 1;
+        regimeBlend.helix = 0;
+        regimeBlend.surge = 0;
+      }
+
       function resetReactiveHistory() {
         onsetHistory.length = 0;
         lastOnsetTime = 0;
         dynamicFluxThreshold = 0.05;
         state.pulse = 0;
+        resetMotionRegime();
         if (prevSpectrumData) {
           prevSpectrumData.fill(0);
         }
@@ -1270,13 +1336,66 @@
         return normalizeBpm(60 / median);
       }
 
+      function updateMotionRegime(nowSeconds) {
+        const shortEnergy = state.drivers.drive * 0.44 + state.drivers.punch * 0.36 + state.drivers.shimmer * 0.2;
+        regimeRollingEnergy += (shortEnergy - regimeRollingEnergy) * 0.075;
+        regimeBaselineEnergy += (shortEnergy - regimeBaselineEnergy) * 0.018;
+        const lift = THREE.MathUtils.clamp((regimeRollingEnergy - regimeBaselineEnergy) * 3.1 + state.pulse * 0.28, -0.4, 1.2);
+
+        const scores = {
+          drift:
+            state.calm * 0.78 +
+            (1 - state.features.loudness) * 0.2 +
+            (1 - state.features.flux) * 0.14 -
+            lift * 0.2,
+          helix:
+            state.drivers.drive * 0.52 +
+            state.drivers.shimmer * 0.24 +
+            (1 - state.calm) * 0.18 +
+            state.flow * 0.25,
+          surge:
+            state.drivers.punch * 0.58 +
+            state.pulse * 0.76 +
+            lift * 0.52 +
+            state.features.flux * 0.24 -
+            state.calm * 0.12,
+        };
+
+        let bestRegime = regimeCurrent;
+        let bestScore = scores[bestRegime];
+        for (const key of Object.keys(scores)) {
+          if (scores[key] > bestScore) {
+            bestRegime = key;
+            bestScore = scores[key];
+          }
+        }
+
+        if (nowSeconds >= regimeHoldUntil && bestRegime !== regimeCurrent && bestScore > scores[regimeCurrent] + 0.09) {
+          regimeCurrent = bestRegime;
+          regimeHoldUntil = nowSeconds + (bestRegime === "surge" ? 1.4 : 3.2);
+        }
+
+        const blendStep = regimeCurrent === "surge" ? 0.16 : 0.09;
+        regimeBlend.drift += ((regimeCurrent === "drift" ? 1 : 0) - regimeBlend.drift) * blendStep;
+        regimeBlend.helix += ((regimeCurrent === "helix" ? 1 : 0) - regimeBlend.helix) * blendStep;
+        regimeBlend.surge += ((regimeCurrent === "surge" ? 1 : 0) - regimeBlend.surge) * blendStep;
+
+        regimeLabel = regimeCurrent === "drift" ? "Drift" : regimeCurrent === "helix" ? "Helix" : "Surge";
+        return {
+          drift: regimeBlend.drift,
+          helix: regimeBlend.helix,
+          surge: regimeBlend.surge,
+          lift,
+        };
+      }
+
       function updateFlowReadout(nowSeconds) {
         if (!flowReadoutEl || nowSeconds - lastFlowReadoutUpdate < 0.14) {
           return;
         }
         lastFlowReadoutUpdate = nowSeconds;
         flowReadoutEl.textContent =
-          `Flow ${state.flow.toFixed(2)} · Calm ${state.calm.toFixed(2)} · Pulse ${state.pulse.toFixed(2)} · BPM ${Math.round(state.estimatedBpm)}`;
+          `Flow ${state.flow.toFixed(2)} · Calm ${state.calm.toFixed(2)} · Pulse ${state.pulse.toFixed(2)} · BPM ${Math.round(state.estimatedBpm)} · ${regimeLabel}`;
       }
 
       function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds) {
@@ -1440,6 +1559,7 @@
         const dt = Math.min(0.05, Math.max(0.001, t - lastFrameSeconds || 0.016));
         lastFrameSeconds = t;
         updateEnergy(t);
+        const regimeState = updateMotionRegime(t);
         updateBandReadout(t);
         updateFlowReadout(t);
 
@@ -1448,15 +1568,28 @@
         const shimmer = state.drivers.shimmer;
         const texture = state.drivers.texture;
         const calm = state.calm;
+        const driftBlend = regimeState.drift;
+        const helixBlend = regimeState.helix;
+        const surgeBlend = regimeState.surge;
+        const regimeTwist = 0.86 + helixBlend * 0.34 + surgeBlend * 0.58;
+        const regimeShear = helixBlend * 0.22 + surgeBlend * 0.46;
+        const regimeDrift = 0.76 + driftBlend * 0.48;
+        const regimeJolt = surgeBlend * (0.05 + state.pulse * 0.16);
         const energyByGroup = [drive, punch, shimmer, texture];
         const coreReaction = THREE.MathUtils.clamp(drive * 0.45 + punch * 0.32 + state.pulse * 0.62 - calm * 0.22, 0, 1.5);
         const morphTrigger = THREE.MathUtils.clamp(state.pulse * 0.85 + shimmer * 0.55 + coreReaction * 0.22, 0, 2);
 
         const calmBrake = 1 - calm * 0.68;
-        const motionScale = (0.1 + (1 - calm) * 0.9) * state.motion;
-        const forwardSpeed = Math.max(0.06, (0.42 + state.flow * 4.3 + state.pulse * 2.8) * (0.34 + calmBrake * 0.66));
+        const motionScale = (0.1 + (1 - calm) * 0.9) * state.motion * (0.78 + helixBlend * 0.24 + surgeBlend * 0.44);
+        const forwardSpeed = Math.max(
+          0.06,
+          (0.42 + state.flow * 4.3 + state.pulse * 2.8) * (0.34 + calmBrake * 0.66) * (0.74 + helixBlend * 0.22 + surgeBlend * 0.58)
+        );
         const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.12) / 3.5, 0, 1);
         const calmLaserLift = THREE.MathUtils.clamp((calm - 0.42) / 0.5, 0, 1);
+        const beatHz = Math.max(0.7, state.estimatedBpm / 60);
+        const beatWave = 0.5 + 0.5 * Math.sin(t * beatHz * Math.PI * 2);
+        const beatInflate = THREE.MathUtils.clamp(0.66 + beatWave * 0.24 + state.pulse * 0.9 + drive * 0.12, 0.55, 2);
         const laserPresence = THREE.MathUtils.clamp(
           0.16 +
             calmLaserLift * 0.28 +
@@ -1474,6 +1607,8 @@
         material.opacity = THREE.MathUtils.clamp(0.72 + texture * 0.11 + coreReaction * 0.08, 0.6, 0.96);
         accentMaterial.size = 0.062 + morphTrigger * 0.028;
         accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13, 0.7, 0.98);
+        backgroundPulseMaterial.size = 0.08 + beatInflate * 0.09;
+        backgroundPulseMaterial.opacity = THREE.MathUtils.clamp(0.28 + beatInflate * 0.24, 0.24, 0.72);
         laserMaterial.opacity += (0.14 + laserPresence * 0.28 - laserMaterial.opacity) * 0.08;
 
         if (morphTrigger > 0.72 && t - lastMorphSwitchTime > 0.1) {
@@ -1505,13 +1640,15 @@
           const theta0 = baseTheta[i];
           const z = depthOffset[i];
           const depthNorm = THREE.MathUtils.clamp((z + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
-          const travelPhase = t * (0.26 + punch * 0.24) * motionScale + flowSeed[i] - z * 0.04;
+          const travelPhase = t * (0.22 + punch * 0.22 + surgeBlend * 0.14) * motionScale * regimeTwist + flowSeed[i] - z * 0.04;
           const centerX =
-            Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.85 + texture * 0.55) +
-            Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * 0.35;
+            Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.85 + texture * 0.55) * regimeDrift +
+            Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * (0.28 + helixBlend * 0.11) +
+            Math.sin(z * 0.018 + t * (0.11 + helixBlend * 0.09 + surgeBlend * 0.14)) * regimeShear;
           const centerY =
-            Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.7 + punch * 0.42) +
-            Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * 0.28;
+            Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.7 + punch * 0.42) * regimeDrift +
+            Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * (0.24 + helixBlend * 0.12) +
+            Math.cos(z * 0.015 - t * (0.12 + helixBlend * 0.07 + surgeBlend * 0.12)) * regimeShear;
 
           // Layered field keeps motion smooth while preserving a recursive "falling tunnel" shape.
           const recursiveA = Math.sin(travelPhase + Math.sin(travelPhase * 0.47 + r0 * 1.4));
@@ -1542,6 +1679,8 @@
             theta = theta0 + t * (0.3 + texture * 0.56) * motionScale + recursiveMix * (0.11 + texture * 0.19);
             radius = r0 * (1 + texture * 0.18) + recursiveB * (0.12 + texture * 0.26);
           }
+          theta += regimeJolt * Math.sin(t * (3.6 + group * 0.7) + seed * 9 + z * 0.028);
+          radius += regimeShear * 0.08 * Math.sin(t * 0.9 + flowSeed[i] + z * 0.02);
 
           // Transfer former orb energy into particles: center-proximal pull/flare.
           const coreWeight = Math.exp(-r0 * 0.48);
@@ -1614,6 +1753,23 @@
           accentColors[dst] = Math.min(1, colors[src] * (1.05 + morphTrigger * 0.23));
           accentColors[dst + 1] = Math.min(1, colors[src + 1] * (1.05 + morphTrigger * 0.21));
           accentColors[dst + 2] = Math.min(1, colors[src + 2] * (1.08 + morphTrigger * 0.3));
+        }
+
+        for (let j = 0; j < backgroundPulseCount; j += 1) {
+          const src = backgroundPulseIndices[j] * 3;
+          const dst = j * 3;
+          const zSrc = positions[src + 2];
+          const depthNorm = THREE.MathUtils.clamp((zSrc + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
+          const backWeight = 1 - depthNorm;
+          const breath = 0.92 + beatInflate * (0.08 + backWeight * 0.09) + Math.sin(t * 1.4 + backgroundPulsePhase[j]) * 0.035;
+          backgroundPulsePositions[dst] = positions[src] * breath;
+          backgroundPulsePositions[dst + 1] = positions[src + 1] * breath;
+          backgroundPulsePositions[dst + 2] = zSrc - 0.45 - backWeight * 1.15;
+
+          const pulseLight = 1.04 + beatInflate * (0.18 + backWeight * 0.12);
+          backgroundPulseColors[dst] = Math.min(1, colors[src] * pulseLight);
+          backgroundPulseColors[dst + 1] = Math.min(1, colors[src + 1] * pulseLight);
+          backgroundPulseColors[dst + 2] = Math.min(1, colors[src + 2] * (pulseLight + 0.04));
         }
 
         for (let j = 0; j < laserCount; j += 1) {
@@ -1701,19 +1857,23 @@
         geometry.attributes.color.needsUpdate = true;
         accentGeometry.attributes.position.needsUpdate = true;
         accentGeometry.attributes.color.needsUpdate = true;
+        backgroundPulsePositionAttr.needsUpdate = true;
+        backgroundPulseColorAttr.needsUpdate = true;
         laserPositionAttr.needsUpdate = true;
         laserColorAttr.needsUpdate = true;
 
-        const cameraDrift = t * 0.16 * motionScale;
+        const cameraDrift = t * (0.12 + helixBlend * 0.08 + surgeBlend * 0.12) * motionScale;
         camera.position.x =
-          Math.sin(cameraDrift) * (0.34 + texture * 0.24) + Math.sin(t * 0.33 * motionScale) * (0.48 + texture * 0.28);
+          Math.sin(cameraDrift) * (0.3 + texture * 0.24 + regimeShear * 0.24) +
+          Math.sin(t * 0.33 * motionScale) * (0.44 + texture * 0.26 + surgeBlend * 0.2);
         camera.position.y =
-          Math.cos(cameraDrift * 0.9) * (0.24 + punch * 0.16) + Math.cos(t * 0.29 * motionScale) * (0.42 + punch * 0.2);
-        camera.position.z = 4.25 + Math.sin(t * 0.58 * motionScale) * (0.14 + drive * 0.1);
+          Math.cos(cameraDrift * 0.9) * (0.22 + punch * 0.16 + regimeShear * 0.16) +
+          Math.cos(t * 0.29 * motionScale) * (0.38 + punch * 0.18 + helixBlend * 0.14);
+        camera.position.z = 4.26 + Math.sin(t * 0.58 * motionScale) * (0.12 + drive * 0.1) - surgeBlend * (0.12 + state.pulse * 0.14);
         camera.lookAt(
-          Math.sin(t * 0.31 * motionScale - 0.5) * (0.9 + texture * 0.45),
-          Math.cos(t * 0.27 * motionScale - 0.3) * (0.75 + punch * 0.33),
-          -34 - state.flow * 6 - state.pulse * 3
+          Math.sin(t * 0.31 * motionScale - 0.5) * (0.86 + texture * 0.42 + regimeShear * 0.38),
+          Math.cos(t * 0.27 * motionScale - 0.3) * (0.7 + punch * 0.32 + regimeShear * 0.26),
+          -34 - state.flow * 6 - state.pulse * 3 - helixBlend * 1.8 - surgeBlend * 4.4
         );
 
         renderer.render(scene, camera);
@@ -1816,6 +1976,7 @@
         state.features.rolloff = 0;
         state.features.spread = 0;
         state.features.flatness = 0;
+        resetMotionRegime();
         if (prevSpectrumData) {
           prevSpectrumData.fill(0);
         }
@@ -1862,6 +2023,7 @@
         lastOnsetTime = 0;
         dynamicFluxThreshold = 0.05;
         state.pulse = 0;
+        resetMotionRegime();
         setStatus("Restarted audio track.");
       });
 
