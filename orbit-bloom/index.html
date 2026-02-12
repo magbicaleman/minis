@@ -50,6 +50,20 @@
         backdrop-filter: blur(14px);
         box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
         z-index: 10;
+        transform-origin: left top;
+        transition:
+          transform 760ms cubic-bezier(0.22, 1, 0.36, 1),
+          opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+          filter 520ms cubic-bezier(0.22, 1, 0.36, 1),
+          box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      body.hud-minimized .hud {
+        transform: translateX(calc(-100% + 58px)) translateY(3px) scale(0.985);
+        opacity: 0.72;
+        filter: saturate(0.8);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+        pointer-events: none;
       }
 
       .title {
@@ -63,6 +77,12 @@
         align-items: center;
         justify-content: space-between;
         gap: 0.6rem;
+      }
+
+      .title-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
       }
 
       .capture-badge {
@@ -106,6 +126,81 @@
       .capture-badge.live .capture-dot {
         background: #7effaf;
         box-shadow: 0 0 12px rgba(126, 255, 170, 0.7);
+      }
+
+      .hud-mini-btn {
+        width: auto;
+        min-width: 0;
+        padding: 0.24rem 0.56rem;
+        font-size: 0.72rem;
+        border-radius: 999px;
+        border-color: rgba(162, 202, 233, 0.42);
+        background: rgba(16, 30, 52, 0.78);
+      }
+
+      .hud-mini-btn:hover {
+        border-color: rgba(222, 244, 255, 0.9);
+      }
+
+      .hud-reveal {
+        position: fixed;
+        inset: 1.05rem auto auto 1.05rem;
+        width: auto;
+        min-width: 0;
+        z-index: 20;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.44rem;
+        padding: 0.42rem 0.68rem;
+        border-radius: 999px;
+        border: 1px solid rgba(140, 191, 230, 0.44);
+        background: rgba(9, 20, 37, 0.76);
+        color: #d6e9ff;
+        font-size: 0.74rem;
+        letter-spacing: 0.02em;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(10px);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-16px) scale(0.95);
+        transition:
+          transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+          opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
+          border-color 260ms ease,
+          color 260ms ease;
+      }
+
+      body.hud-minimized .hud-reveal {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(0) scale(1);
+      }
+
+      .hud-reveal-dot {
+        width: 0.46rem;
+        height: 0.46rem;
+        border-radius: 50%;
+        background: #6f87a4;
+      }
+
+      .hud-reveal.armed {
+        color: #95efff;
+        border-color: rgba(110, 233, 255, 0.62);
+      }
+
+      .hud-reveal.armed .hud-reveal-dot {
+        background: #66ebff;
+        box-shadow: 0 0 10px rgba(102, 235, 255, 0.48);
+      }
+
+      .hud-reveal.live {
+        color: #c7ffd8;
+        border-color: rgba(135, 255, 180, 0.66);
+      }
+
+      .hud-reveal.live .hud-reveal-dot {
+        background: #80ffb4;
+        box-shadow: 0 0 12px rgba(128, 255, 180, 0.68);
       }
 
       .subtitle {
@@ -212,16 +307,26 @@
       .hide {
         display: none;
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .hud,
+        .hud-reveal {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
     <aside class="hud">
       <div class="title-row">
         <h1 class="title">Orbit Bloom</h1>
-        <span id="captureBadge" class="capture-badge">
-          <span class="capture-dot"></span>
-          <span id="captureBadgeText">Capture Off</span>
-        </span>
+        <div class="title-actions">
+          <span id="captureBadge" class="capture-badge">
+            <span class="capture-dot"></span>
+            <span id="captureBadgeText">Capture Off</span>
+          </span>
+          <button id="hudHideBtn" class="hud-mini-btn" type="button">Hide</button>
+        </div>
       </div>
       <p class="subtitle">
         3D particles in two modes: feature-reactive local playback and live tab-audio capture.
@@ -271,6 +376,10 @@
       <p id="status">Load an audio file to start local reactive mode.</p>
       <p class="mini">Tab audio uses secure capture permission. No direct speaker-output access is needed.</p>
     </aside>
+    <button id="hudRevealBtn" class="hud-reveal" type="button">
+      <span class="hud-reveal-dot"></span>
+      Controls
+    </button>
 
     <audio id="audio" class="hide" crossorigin="anonymous"></audio>
     <script type="module">
@@ -318,6 +427,9 @@
       const audioFileEl = document.getElementById("audioFile");
       const toggleAudioBtn = document.getElementById("toggleAudio");
       const resetAudioBtn = document.getElementById("resetAudio");
+      const hudEl = document.querySelector(".hud");
+      const hudHideBtn = document.getElementById("hudHideBtn");
+      const hudRevealBtn = document.getElementById("hudRevealBtn");
       const audioEl = document.getElementById("audio");
       const localPanelEl = document.getElementById("localPanel");
       const tabPanelEl = document.getElementById("tabPanel");
@@ -350,6 +462,8 @@
       let dynamicFluxThreshold = 0.05;
       let lastOnsetTime = 0;
       let lastCaptureIndicatorState = "";
+      let hudMinimized = false;
+      let hudAutoHideTimer = null;
       const onsetHistory = [];
 
       const scene = new THREE.Scene();
@@ -655,6 +769,36 @@
         }
       }
 
+      function clearHudAutoHide() {
+        if (hudAutoHideTimer) {
+          clearTimeout(hudAutoHideTimer);
+          hudAutoHideTimer = null;
+        }
+      }
+
+      function scheduleHudAutoHide(delayMs = 1500) {
+        clearHudAutoHide();
+        if (state.mode !== "tab" || !captureStream || hudMinimized) {
+          return;
+        }
+        hudAutoHideTimer = setTimeout(() => {
+          if (state.mode === "tab" && captureStream && lastCaptureIndicatorState === "live" && !hudMinimized) {
+            setHudMinimized(true);
+          }
+        }, delayMs);
+      }
+
+      function setHudMinimized(minimize) {
+        hudMinimized = !!minimize;
+        document.body.classList.toggle("hud-minimized", hudMinimized);
+        if (hudHideBtn) {
+          hudHideBtn.textContent = hudMinimized ? "Show" : "Hide";
+        }
+        if (!hudMinimized && state.mode === "tab" && captureStream && lastCaptureIndicatorState === "live") {
+          scheduleHudAutoHide(7000);
+        }
+      }
+
       function renderFavicon(stateName) {
         if (!faviconEl) {
           return;
@@ -704,6 +848,23 @@
             captureBadgeTextEl.textContent = "Capture Live";
           } else {
             captureBadgeTextEl.textContent = "Capture Off";
+          }
+        }
+        if (hudRevealBtn) {
+          hudRevealBtn.classList.remove("armed", "live");
+          if (stateName === "armed") {
+            hudRevealBtn.classList.add("armed");
+          } else if (stateName === "live") {
+            hudRevealBtn.classList.add("live");
+          }
+        }
+
+        if (state.mode === "tab") {
+          if (stateName === "live") {
+            scheduleHudAutoHide(1500);
+          } else if (stateName === "off") {
+            clearHudAutoHide();
+            setHudMinimized(false);
           }
         }
 
@@ -889,6 +1050,10 @@
         if (!isTab && captureStream) {
           stopTabCapture("", true);
         }
+        if (!isTab) {
+          clearHudAutoHide();
+          setHudMinimized(false);
+        }
         localPanelEl.classList.toggle("hide", isTab);
         tabPanelEl.classList.toggle("hide", !isTab);
         if (isTab) {
@@ -898,6 +1063,9 @@
               : "Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab."
           );
           updateCaptureIndicators(captureStream ? "armed" : "off");
+          if (captureStream && lastCaptureIndicatorState === "live") {
+            scheduleHudAutoHide(1500);
+          }
         } else {
           setStatus(audioEl.src ? "Local audio mode active." : "Load an audio file to start local reactive mode.");
           updateCaptureIndicators("off");
@@ -1478,6 +1646,35 @@
         applyMode(modeEl.value);
       });
 
+      hudHideBtn.addEventListener("click", () => {
+        setHudMinimized(!hudMinimized);
+      });
+
+      hudRevealBtn.addEventListener("click", () => {
+        setHudMinimized(false);
+      });
+
+      hudEl.addEventListener("pointerenter", () => {
+        clearHudAutoHide();
+      });
+
+      hudEl.addEventListener("pointerleave", () => {
+        if (!hudMinimized && state.mode === "tab" && captureStream && lastCaptureIndicatorState === "live") {
+          scheduleHudAutoHide(3500);
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key.toLowerCase() !== "h") {
+          return;
+        }
+        const target = event.target;
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+          return;
+        }
+        setHudMinimized(!hudMinimized);
+      });
+
       sensEl.addEventListener("input", () => {
         state.sensitivity = Number(sensEl.value);
         sensValueEl.textContent = `${state.sensitivity.toFixed(1)}x`;
@@ -1612,6 +1809,7 @@
 
       applyMode(state.mode);
       setCaptureStatus("Tab capture is off.");
+      setHudMinimized(false);
       updateCaptureIndicators("off");
       requestAnimationFrame(animate);
     </script>
