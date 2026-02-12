@@ -1571,21 +1571,22 @@
         const driftBlend = regimeState.drift;
         const helixBlend = regimeState.helix;
         const surgeBlend = regimeState.surge;
-        const regimeTwist = 0.86 + helixBlend * 0.34 + surgeBlend * 0.58;
-        const regimeShear = helixBlend * 0.22 + surgeBlend * 0.46;
-        const regimeDrift = 0.76 + driftBlend * 0.48;
-        const regimeJolt = surgeBlend * (0.05 + state.pulse * 0.16);
+        const regimeTwist = 0.9 + helixBlend * 0.22 + surgeBlend * 0.38;
+        const regimeShear = helixBlend * 0.08 + surgeBlend * 0.18;
+        const regimeDrift = 0.34 + driftBlend * 0.24;
+        const regimeJolt = surgeBlend * (0.02 + state.pulse * 0.08);
         const energyByGroup = [drive, punch, shimmer, texture];
         const coreReaction = THREE.MathUtils.clamp(drive * 0.45 + punch * 0.32 + state.pulse * 0.62 - calm * 0.22, 0, 1.5);
         const morphTrigger = THREE.MathUtils.clamp(state.pulse * 0.85 + shimmer * 0.55 + coreReaction * 0.22, 0, 2);
 
         const calmBrake = 1 - calm * 0.68;
         const motionScale = (0.1 + (1 - calm) * 0.9) * state.motion * (0.78 + helixBlend * 0.24 + surgeBlend * 0.44);
+        const fallTunnelPull = 0.92 + state.flow * 0.34 + drive * 0.22 + surgeBlend * 0.26;
         const forwardSpeed = Math.max(
-          0.06,
-          (0.42 + state.flow * 4.3 + state.pulse * 2.8) * (0.34 + calmBrake * 0.66) * (0.74 + helixBlend * 0.22 + surgeBlend * 0.58)
+          0.12,
+          (0.72 + state.flow * 5.2 + state.pulse * 3.1) * (0.44 + calmBrake * 0.56) * fallTunnelPull
         );
-        const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.12) / 3.5, 0, 1);
+        const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.24) / 4.6, 0, 1);
         const calmLaserLift = THREE.MathUtils.clamp((calm - 0.42) / 0.5, 0, 1);
         const beatHz = Math.max(0.7, state.estimatedBpm / 60);
         const beatSinceOnset = Math.max(0, t - lastOnsetTime);
@@ -1638,7 +1639,7 @@
           const group = particleGroups[i];
           const bandDrive = energyByGroup[group];
 
-          depthOffset[i] += dt * forwardSpeed * (0.44 + seed * 0.58 + bandDrive * 0.34);
+          depthOffset[i] += dt * forwardSpeed * (0.58 + seed * 0.76 + bandDrive * 0.38);
           if (depthOffset[i] > tunnelFront) {
             spawnParticle(i, -tunnelDepth - Math.random() * 18, true);
           }
@@ -1649,13 +1650,13 @@
           const depthNorm = THREE.MathUtils.clamp((z + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
           const travelPhase = t * (0.22 + punch * 0.22 + surgeBlend * 0.14) * motionScale * regimeTwist + flowSeed[i] - z * 0.04;
           const centerX =
-            Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.85 + texture * 0.55) * regimeDrift +
-            Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * (0.28 + helixBlend * 0.11) +
-            Math.sin(z * 0.018 + t * (0.11 + helixBlend * 0.09 + surgeBlend * 0.14)) * regimeShear;
+            Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.54 + texture * 0.32) * regimeDrift +
+            Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * (0.14 + helixBlend * 0.06) +
+            Math.sin(z * 0.018 + t * (0.11 + helixBlend * 0.09 + surgeBlend * 0.14)) * regimeShear * 0.5;
           const centerY =
-            Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.7 + punch * 0.42) * regimeDrift +
-            Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * (0.24 + helixBlend * 0.12) +
-            Math.cos(z * 0.015 - t * (0.12 + helixBlend * 0.07 + surgeBlend * 0.12)) * regimeShear;
+            Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.46 + punch * 0.26) * regimeDrift +
+            Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * (0.12 + helixBlend * 0.06) +
+            Math.cos(z * 0.015 - t * (0.12 + helixBlend * 0.07 + surgeBlend * 0.12)) * regimeShear * 0.5;
 
           // Layered field keeps motion smooth while preserving a recursive "falling tunnel" shape.
           const recursiveA = Math.sin(travelPhase + Math.sin(travelPhase * 0.47 + r0 * 1.4));
@@ -1686,8 +1687,8 @@
             theta = theta0 + t * (0.3 + texture * 0.56) * motionScale + recursiveMix * (0.11 + texture * 0.19);
             radius = r0 * (1 + texture * 0.18) + recursiveB * (0.12 + texture * 0.26);
           }
-          theta += regimeJolt * Math.sin(t * (3.6 + group * 0.7) + seed * 9 + z * 0.028);
-          radius += regimeShear * 0.08 * Math.sin(t * 0.9 + flowSeed[i] + z * 0.02);
+          theta += regimeJolt * Math.sin(t * (3.2 + group * 0.6) + seed * 9 + z * 0.028);
+          radius += regimeShear * 0.035 * Math.sin(t * 0.9 + flowSeed[i] + z * 0.02);
 
           // Transfer former orb energy into particles: center-proximal pull/flare.
           const coreWeight = Math.exp(-r0 * 0.48);
@@ -1870,18 +1871,18 @@
         laserPositionAttr.needsUpdate = true;
         laserColorAttr.needsUpdate = true;
 
-        const cameraDrift = t * (0.12 + helixBlend * 0.08 + surgeBlend * 0.12) * motionScale;
+        const cameraDrift = t * (0.08 + helixBlend * 0.05 + surgeBlend * 0.08) * motionScale;
         camera.position.x =
-          Math.sin(cameraDrift) * (0.3 + texture * 0.24 + regimeShear * 0.24) +
-          Math.sin(t * 0.33 * motionScale) * (0.44 + texture * 0.26 + surgeBlend * 0.2);
+          Math.sin(cameraDrift) * (0.2 + texture * 0.15 + regimeShear * 0.12) +
+          Math.sin(t * 0.33 * motionScale) * (0.22 + texture * 0.13 + surgeBlend * 0.08);
         camera.position.y =
-          Math.cos(cameraDrift * 0.9) * (0.22 + punch * 0.16 + regimeShear * 0.16) +
-          Math.cos(t * 0.29 * motionScale) * (0.38 + punch * 0.18 + helixBlend * 0.14);
-        camera.position.z = 4.26 + Math.sin(t * 0.58 * motionScale) * (0.12 + drive * 0.1) - surgeBlend * (0.12 + state.pulse * 0.14);
+          Math.cos(cameraDrift * 0.9) * (0.14 + punch * 0.1 + regimeShear * 0.08) +
+          Math.cos(t * 0.29 * motionScale) * (0.18 + punch * 0.09 + helixBlend * 0.05);
+        camera.position.z = 4.12 + Math.sin(t * 0.52 * motionScale) * (0.08 + drive * 0.07) - surgeBlend * (0.12 + state.pulse * 0.12);
         camera.lookAt(
-          Math.sin(t * 0.31 * motionScale - 0.5) * (0.86 + texture * 0.42 + regimeShear * 0.38),
-          Math.cos(t * 0.27 * motionScale - 0.3) * (0.7 + punch * 0.32 + regimeShear * 0.26),
-          -34 - state.flow * 6 - state.pulse * 3 - helixBlend * 1.8 - surgeBlend * 4.4
+          Math.sin(t * 0.31 * motionScale - 0.5) * (0.34 + texture * 0.2 + regimeShear * 0.12),
+          Math.cos(t * 0.27 * motionScale - 0.3) * (0.28 + punch * 0.12 + regimeShear * 0.08),
+          -36 - state.flow * 8 - state.pulse * 4 - helixBlend * 2.4 - surgeBlend * 5.6
         );
 
         renderer.render(scene, camera);
