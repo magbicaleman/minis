@@ -277,7 +277,7 @@
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
       const state = {
-        mode: "local",
+        mode: "tab",
         sensitivity: 1.4,
         estimatedBpm: 110,
         energy: 0.03,
@@ -881,6 +881,9 @@
       }
 
       function applyMode(mode) {
+        if (modeEl && modeEl.value !== mode) {
+          modeEl.value = mode;
+        }
         state.mode = mode;
         const isTab = mode === "tab";
         if (!isTab && captureStream) {
