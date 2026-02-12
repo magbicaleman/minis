@@ -811,13 +811,13 @@
       const laserIndices = [];
       for (let i = 0; i < particleCount; i += 1) {
         const g = particleGroups[i];
-        if ((g === 2 || g === 3) && Math.random() < 0.05) {
+        if ((g === 2 || g === 3) && Math.random() < 0.08) {
           laserIndices.push(i);
         }
       }
-      const minLasers = Math.floor(particleCount * 0.025);
+      const minLasers = Math.floor(particleCount * 0.045);
       for (let i = 0; i < particleCount && laserIndices.length < minLasers; i += 1) {
-        if (Math.random() < 0.02) {
+        if (Math.random() < 0.04) {
           laserIndices.push(i);
         }
       }
@@ -839,7 +839,7 @@
       const laserMaterial = new THREE.LineBasicMaterial({
         vertexColors: true,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.56,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
@@ -1281,8 +1281,13 @@
 
       function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds) {
         const raw = extractAudioFeatures();
-        const loudness = THREE.MathUtils.clamp(Math.pow(raw.loudness * 2.8 * state.sensitivity, 0.92), 0, 1.6);
-        const flux = THREE.MathUtils.clamp(raw.flux * 12 * state.sensitivity, 0, 1.8);
+        const inputLevel = raw.loudness * state.sensitivity;
+        const noiseGate = THREE.MathUtils.clamp((inputLevel - 0.018) / 0.22, 0, 1);
+        const loudness =
+          THREE.MathUtils.clamp(Math.pow(raw.loudness * 2.15 * state.sensitivity, 0.95), 0, 1.3) *
+          (0.18 + noiseGate * 0.82);
+        const flux =
+          THREE.MathUtils.clamp(raw.flux * 8.4 * state.sensitivity, 0, 1.4) * (0.22 + noiseGate * 0.78);
         const centroid = THREE.MathUtils.clamp(raw.centroid * 1.25, 0, 1.2);
         const rolloff = THREE.MathUtils.clamp(raw.rolloff * 1.15, 0, 1.2);
         const spread = THREE.MathUtils.clamp(raw.spread * 1.3, 0, 1.4);
@@ -1294,9 +1299,9 @@
         state.features.spread += (spread - state.features.spread) * 0.14;
         state.features.flatness += (flatness - state.features.flatness) * 0.13;
 
-        dynamicFluxThreshold = dynamicFluxThreshold * 0.92 + flux * 0.08;
-        const onsetThreshold = Math.max(0.08, dynamicFluxThreshold * 1.2);
-        if (flux > onsetThreshold && loudness > 0.07 && nowSeconds - lastOnsetTime > 0.11) {
+        dynamicFluxThreshold = THREE.MathUtils.clamp(dynamicFluxThreshold * 0.9 + flux * 0.1, 0.04, 0.42);
+        const onsetThreshold = Math.max(0.06, dynamicFluxThreshold * 1.3 + (1 - noiseGate) * 0.04);
+        if (flux > onsetThreshold && loudness > 0.09 && nowSeconds - lastOnsetTime > 0.11) {
           lastOnsetTime = nowSeconds;
           onsetHistory.push(nowSeconds);
           if (onsetHistory.length > 20) {
@@ -1314,48 +1319,49 @@
         state.pulse = THREE.MathUtils.clamp(Math.max(onsetPulse, fluxPulse * 0.75), 0, 1.35);
 
         state.targetDrivers.drive = THREE.MathUtils.clamp(
-          state.features.loudness * 0.74 + (1 - state.features.centroid) * 0.22 + state.features.rolloff * 0.08,
+          state.features.loudness * 0.62 + (1 - state.features.centroid) * 0.2 + state.features.rolloff * 0.06,
           0,
-          1.4
+          1.1
         );
         state.targetDrivers.punch = THREE.MathUtils.clamp(
-          state.features.flux * 0.86 + state.pulse * 0.54 + state.features.loudness * 0.18,
+          state.features.flux * 0.58 + state.pulse * 0.34 + state.features.loudness * 0.12,
           0,
-          1.5
+          1.2
         );
         state.targetDrivers.shimmer = THREE.MathUtils.clamp(
-          state.features.centroid * 0.72 + state.features.rolloff * 0.28 + state.features.flux * 0.12,
+          state.features.centroid * 0.58 + state.features.rolloff * 0.24 + state.features.flux * 0.08,
           0,
-          1.3
+          1.08
         );
         state.targetDrivers.texture = THREE.MathUtils.clamp(
-          state.features.spread * 0.58 + state.features.flatness * 0.34 + state.features.rolloff * 0.1,
+          state.features.spread * 0.5 + state.features.flatness * 0.28 + state.features.rolloff * 0.08,
           0,
-          1.3
+          1.05
         );
 
         const restLift = Math.min(0.7, timeSinceOnset * 0.2);
         const transportArm = THREE.MathUtils.clamp((sourceAgeSeconds - 0.9) / 2.8, 0, 1);
         state.targetCalm = THREE.MathUtils.clamp(
-          0.9 -
-            state.targetDrivers.drive * 0.34 -
-            state.targetDrivers.punch * 0.42 +
-            restLift * 0.3 -
-            state.targetDrivers.texture * 0.08,
-          0.08,
-          0.95
+          0.94 -
+            state.targetDrivers.drive * 0.28 -
+            state.targetDrivers.punch * 0.38 +
+            restLift * 0.34 -
+            state.targetDrivers.texture * 0.06,
+          0.2,
+          0.97
         );
         state.targetFlow = THREE.MathUtils.clamp(
-          (0.05 +
-            state.targetDrivers.drive * 0.44 +
-            state.targetDrivers.punch * 0.38 +
-            state.targetDrivers.shimmer * 0.16 -
-            state.targetCalm * 0.16) *
-            (0.26 + transportArm * 0.74),
-          0.03,
-          1.2
+          (0.015 +
+            state.targetDrivers.drive * 0.32 +
+            state.targetDrivers.punch * 0.26 +
+            state.targetDrivers.shimmer * 0.12 -
+            state.targetCalm * 0.12) *
+            (0.16 + transportArm * 0.52) *
+            (0.3 + noiseGate * 0.7),
+          0.008,
+          0.78
         );
-        state.targetMotion = THREE.MathUtils.clamp(0.08 + state.targetFlow * 0.68 + state.pulse * 0.22, 0.05, 1);
+        state.targetMotion = THREE.MathUtils.clamp(0.03 + state.targetFlow * 0.58 + state.pulse * 0.16, 0.03, 0.74);
       }
 
       function updateEnergy(nowSeconds) {
@@ -1390,9 +1396,9 @@
           state.targetDrivers.punch = 0.02;
           state.targetDrivers.shimmer = 0.02;
           state.targetDrivers.texture = 0.02;
-          state.targetFlow = 0.05;
-          state.targetCalm = 0.9;
-          state.targetMotion = 0.08;
+          state.targetFlow = 0.02;
+          state.targetCalm = 0.93;
+          state.targetMotion = 0.04;
           state.pulse *= 0.9;
         } else {
           state.targetDrivers.drive = 0.03;
@@ -1446,15 +1452,21 @@
         const coreReaction = THREE.MathUtils.clamp(drive * 0.45 + punch * 0.32 + state.pulse * 0.62 - calm * 0.22, 0, 1.5);
         const morphTrigger = THREE.MathUtils.clamp(state.pulse * 0.85 + shimmer * 0.55 + coreReaction * 0.22, 0, 2);
 
-        const calmBrake = 1 - calm * 0.62;
-        const motionScale = (0.16 + (1 - calm) * 0.84) * state.motion;
-        const forwardSpeed = Math.max(0.2, (1.35 + state.flow * 9.2 + state.pulse * 6.5) * calmBrake);
-        const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.28) / 6.2, 0, 1);
-        const laserSpeedSoftness = 1 - speedNorm;
+        const calmBrake = 1 - calm * 0.68;
+        const motionScale = (0.1 + (1 - calm) * 0.9) * state.motion;
+        const forwardSpeed = Math.max(0.06, (0.42 + state.flow * 4.3 + state.pulse * 2.8) * (0.34 + calmBrake * 0.66));
+        const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.12) / 3.5, 0, 1);
+        const calmLaserLift = THREE.MathUtils.clamp((calm - 0.42) / 0.5, 0, 1);
         const laserPresence = THREE.MathUtils.clamp(
-          0.1 + calm * 0.74 + laserSpeedSoftness * 0.54 - state.pulse * 0.3 - morphTrigger * 0.12,
-          0.06,
-          1
+          0.16 +
+            calmLaserLift * 0.28 +
+            punch * 0.2 +
+            shimmer * 0.16 +
+            speedNorm * 0.11 +
+            texture * 0.05 +
+            state.pulse * 0.04,
+          0.2,
+          0.82
         );
         particles.rotation.x = Math.sin(t * 0.08 * motionScale) * (0.02 + texture * 0.04);
         particles.rotation.y = Math.sin(t * 0.1 * motionScale) * (0.03 + punch * 0.05);
@@ -1462,7 +1474,7 @@
         material.opacity = THREE.MathUtils.clamp(0.72 + texture * 0.11 + coreReaction * 0.08, 0.6, 0.96);
         accentMaterial.size = 0.062 + morphTrigger * 0.028;
         accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13, 0.7, 0.98);
-        laserMaterial.opacity += (0.09 + laserPresence * 0.23 - laserMaterial.opacity) * 0.08;
+        laserMaterial.opacity += (0.14 + laserPresence * 0.28 - laserMaterial.opacity) * 0.08;
 
         if (morphTrigger > 0.72 && t - lastMorphSwitchTime > 0.1) {
           lastMorphSwitchTime = t;
@@ -1484,7 +1496,7 @@
           const group = particleGroups[i];
           const bandDrive = energyByGroup[group];
 
-          depthOffset[i] += dt * forwardSpeed * (0.72 + seed * 0.9 + bandDrive * 0.5);
+          depthOffset[i] += dt * forwardSpeed * (0.44 + seed * 0.58 + bandDrive * 0.34);
           if (depthOffset[i] > tunnelFront) {
             spawnParticle(i, -tunnelDepth - Math.random() * 18, true);
           }
@@ -1641,13 +1653,13 @@
           const centerSuppress = THREE.MathUtils.clamp((coreDistance - 0.38) / 1.6, 0.2, 1);
           const linePresence = THREE.MathUtils.clamp(
             laserPresence * centerSuppress * (0.68 + 0.32 * Math.sin(t * 0.44 + j * 0.15)),
-            0.08,
-            1
+            0.18,
+            0.9
           );
           const trailLen = THREE.MathUtils.clamp(
-            (0.05 + laserVel[j] * 0.006 + morphTrigger * 0.14 + state.pulse * 0.1 - calm * 0.06) *
-              (0.36 + linePresence * 1.06),
-            0.04,
+            (0.03 + laserVel[j] * 0.0035 + morphTrigger * 0.08 + state.pulse * 0.05 - calm * 0.04 + calmLaserLift * 0.03) *
+              (0.24 + linePresence * 0.6),
+            0.08,
             1.45
           );
           const tx = x - ux * trailLen;
@@ -1666,10 +1678,10 @@
           const sat = THREE.MathUtils.clamp(0.66 + morphTrigger * 0.14 + shimmer * 0.06, 0.58, 0.9);
           const headLight = THREE.MathUtils.clamp(
             (0.34 + morphTrigger * 0.12 + state.pulse * 0.08 + laserVel[j] * 0.0025) * (0.54 + linePresence * 0.78),
-            0.16,
-            0.76
+            0.28,
+            0.9
           );
-          const tailLight = THREE.MathUtils.clamp((0.08 + morphTrigger * 0.07) * (0.46 + linePresence * 0.5), 0.04, 0.32);
+          const tailLight = THREE.MathUtils.clamp((0.11 + morphTrigger * 0.08) * (0.5 + linePresence * 0.58), 0.12, 0.46);
 
           laserColor.setHSL(hue + 0.03, sat * 0.86, tailLight);
           laserColors[dst] = laserColor.r;
