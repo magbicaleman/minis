@@ -1588,8 +1588,15 @@
         const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.12) / 3.5, 0, 1);
         const calmLaserLift = THREE.MathUtils.clamp((calm - 0.42) / 0.5, 0, 1);
         const beatHz = Math.max(0.7, state.estimatedBpm / 60);
-        const beatWave = 0.5 + 0.5 * Math.sin(t * beatHz * Math.PI * 2);
-        const beatInflate = THREE.MathUtils.clamp(0.66 + beatWave * 0.24 + state.pulse * 0.9 + drive * 0.12, 0.55, 2);
+        const beatSinceOnset = Math.max(0, t - lastOnsetTime);
+        const onsetEcho = lastOnsetTime > 0 ? Math.exp(-beatSinceOnset * 5.4) : 0;
+        const beatRing =
+          lastOnsetTime > 0 ? onsetEcho * Math.pow(Math.max(0, Math.sin(beatSinceOnset * beatHz * Math.PI * 2)), 2) : 0;
+        const beatEvent = THREE.MathUtils.clamp(
+          state.pulse * 0.92 + beatRing * 0.66 + Math.max(0, state.features.flux - dynamicFluxThreshold) * 0.45,
+          0,
+          1.5
+        );
         const laserPresence = THREE.MathUtils.clamp(
           0.16 +
             calmLaserLift * 0.28 +
@@ -1607,8 +1614,8 @@
         material.opacity = THREE.MathUtils.clamp(0.72 + texture * 0.11 + coreReaction * 0.08, 0.6, 0.96);
         accentMaterial.size = 0.062 + morphTrigger * 0.028;
         accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13, 0.7, 0.98);
-        backgroundPulseMaterial.size = 0.08 + beatInflate * 0.09;
-        backgroundPulseMaterial.opacity = THREE.MathUtils.clamp(0.28 + beatInflate * 0.24, 0.24, 0.72);
+        backgroundPulseMaterial.size = 0.07 + beatEvent * 0.13;
+        backgroundPulseMaterial.opacity = THREE.MathUtils.clamp(0.2 + beatEvent * 0.28, 0.18, 0.68);
         laserMaterial.opacity += (0.14 + laserPresence * 0.28 - laserMaterial.opacity) * 0.08;
 
         if (morphTrigger > 0.72 && t - lastMorphSwitchTime > 0.1) {
@@ -1761,12 +1768,13 @@
           const zSrc = positions[src + 2];
           const depthNorm = THREE.MathUtils.clamp((zSrc + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
           const backWeight = 1 - depthNorm;
-          const breath = 0.92 + beatInflate * (0.08 + backWeight * 0.09) + Math.sin(t * 1.4 + backgroundPulsePhase[j]) * 0.035;
+          const driftBreath = Math.sin(t * 0.22 + backgroundPulsePhase[j]) * 0.006;
+          const breath = 0.995 + driftBreath + beatEvent * (0.028 + backWeight * 0.12);
           backgroundPulsePositions[dst] = positions[src] * breath;
           backgroundPulsePositions[dst + 1] = positions[src + 1] * breath;
           backgroundPulsePositions[dst + 2] = zSrc - 0.45 - backWeight * 1.15;
 
-          const pulseLight = 1.04 + beatInflate * (0.18 + backWeight * 0.12);
+          const pulseLight = 1 + beatEvent * (0.22 + backWeight * 0.2);
           backgroundPulseColors[dst] = Math.min(1, colors[src] * pulseLight);
           backgroundPulseColors[dst + 1] = Math.min(1, colors[src + 1] * pulseLight);
           backgroundPulseColors[dst + 2] = Math.min(1, colors[src + 2] * (pulseLight + 0.04));
