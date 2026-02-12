@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbit Bloom</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-1: #041224;
+        --bg-2: #071929;
+        --bg-3: #231a38;
+        --card: rgba(8, 13, 24, 0.72);
+        --line: rgba(154, 210, 255, 0.26);
+        --text: #e8f0ff;
+        --muted: #9ab5cf;
+        --accent: #7ce8ff;
+        --accent-2: #ffd773;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        color: var(--text);
+        font-family: "Space Grotesk", sans-serif;
+        background:
+          radial-gradient(1400px 600px at 15% -10%, rgba(71, 193, 255, 0.18), transparent 60%),
+          radial-gradient(1000px 500px at 90% 0%, rgba(255, 197, 90, 0.2), transparent 55%),
+          linear-gradient(145deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
+      }
+
+      .hud {
+        position: fixed;
+        inset: 1rem auto auto 1rem;
+        width: min(24rem, calc(100vw - 2rem));
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+        z-index: 10;
+      }
+
+      .title {
+        margin: 0;
+        font: 800 1.55rem/1.05 "Syne", sans-serif;
+        letter-spacing: 0.02em;
+      }
+
+      .subtitle {
+        margin: 0.45rem 0 1rem;
+        color: var(--muted);
+        font-size: 0.89rem;
+        line-height: 1.35;
+      }
+
+      .group {
+        margin-top: 0.8rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+        color: #cfe4ff;
+      }
+
+      select,
+      input,
+      button {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        border-radius: 10px;
+        border: 1px solid rgba(179, 224, 255, 0.35);
+        background: rgba(16, 26, 46, 0.82);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.9rem;
+      }
+
+      input[type="range"] {
+        padding: 0;
+      }
+
+      button {
+        cursor: pointer;
+        background:
+          linear-gradient(120deg, rgba(123, 233, 255, 0.3), rgba(255, 202, 113, 0.32));
+      }
+
+      button:hover {
+        border-color: rgba(227, 248, 255, 0.8);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+      }
+
+      .mini {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.3;
+        margin-top: 0.5rem;
+      }
+
+      .band-legend {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem 0.5rem;
+        margin-top: 0.4rem;
+      }
+
+      .band-chip {
+        font-size: 0.73rem;
+        border: 1px solid rgba(188, 221, 255, 0.28);
+        border-radius: 999px;
+        padding: 0.18rem 0.52rem;
+        color: #d8ecff;
+        background: rgba(13, 21, 38, 0.5);
+      }
+
+      .bass-chip {
+        border-color: rgba(255, 173, 88, 0.65);
+        color: #ffc58e;
+      }
+
+      .mid-chip {
+        border-color: rgba(117, 255, 189, 0.6);
+        color: #98ffc9;
+      }
+
+      .treble-chip {
+        border-color: rgba(255, 150, 255, 0.62);
+        color: #ffbeff;
+      }
+
+      .air-chip {
+        border-color: rgba(159, 231, 255, 0.62);
+        color: #bfeeff;
+      }
+
+      #status {
+        margin-top: 0.7rem;
+        color: var(--accent);
+        font-size: 0.78rem;
+      }
+
+      .embed {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        width: min(380px, calc(100vw - 2rem));
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(7, 12, 24, 0.8);
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+        z-index: 10;
+      }
+
+      #player {
+        aspect-ratio: 16 / 9;
+        width: 100%;
+      }
+
+      .embed-caption {
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+
+      .hide {
+        display: none;
+      }
+
+      @media (max-width: 880px) {
+        .embed {
+          width: calc(100vw - 2rem);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="hud">
+      <h1 class="title">Orbit Bloom</h1>
+      <p class="subtitle">
+        3D particles in two modes: true audio-reactive (local file) and YouTube time-synced motion.
+      </p>
+
+      <div class="group">
+        <label for="mode">Mode</label>
+        <select id="mode">
+          <option value="local">Local Audio Reactive</option>
+          <option value="youtube">YouTube Sync</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="sensitivity">Sensitivity <span id="sensValue">1.4x</span></label>
+        <input id="sensitivity" type="range" min="0.5" max="2.5" step="0.1" value="1.4" />
+      </div>
+
+      <section id="localPanel">
+        <div class="group">
+          <label for="audioFile">Audio File</label>
+          <input id="audioFile" type="file" accept="audio/*" />
+        </div>
+        <div class="group row">
+          <button id="toggleAudio">Play / Pause</button>
+          <button id="resetAudio">Restart</button>
+        </div>
+        <p id="bandReadout" class="mini">Bass 0.00 · Mid 0.00 · Treble 0.00 · Air 0.00</p>
+        <div class="band-legend">
+          <span class="band-chip bass-chip">Bass: Pulse Core</span>
+          <span class="band-chip mid-chip">Mid: Spiral Arms</span>
+          <span class="band-chip treble-chip">Treble: Twirl Sparks</span>
+          <span class="band-chip air-chip">Air: Halo Drift</span>
+        </div>
+      </section>
+
+      <section id="ytPanel" class="hide">
+        <div class="group">
+          <label for="youtubeUrl">YouTube URL or ID</label>
+          <input id="youtubeUrl" type="text" value="https://www.youtube.com/watch?v=jfKfPfyJRdk" />
+        </div>
+        <div class="group row">
+          <button id="loadYoutube">Load Video</button>
+          <input id="bpm" type="number" min="60" max="200" value="110" />
+        </div>
+        <p class="mini">BPM drives pulse timing. This mode syncs by playback time, not by direct audio FFT.</p>
+      </section>
+
+      <p id="status">Load an audio file to start local reactive mode.</p>
+      <p class="mini">
+        YouTube is embedded for playback, but browser security usually blocks direct analysis of iframe audio.
+      </p>
+    </aside>
+
+    <div id="youtubeWrap" class="embed hide">
+      <div id="player"></div>
+      <p class="embed-caption">YouTube Sync mode</p>
+    </div>
+
+    <audio id="audio" class="hide" crossorigin="anonymous"></audio>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+
+      const state = {
+        mode: "local",
+        sensitivity: 1.4,
+        bpm: 110,
+        energy: 0.03,
+        targetEnergy: 0.03,
+        bands: {
+          bass: 0.03,
+          mid: 0.03,
+          treble: 0.03,
+          air: 0.03,
+        },
+        targetBands: {
+          bass: 0.03,
+          mid: 0.03,
+          treble: 0.03,
+          air: 0.03,
+        },
+      };
+
+      const statusEl = document.getElementById("status");
+      const modeEl = document.getElementById("mode");
+      const sensEl = document.getElementById("sensitivity");
+      const sensValueEl = document.getElementById("sensValue");
+      const audioFileEl = document.getElementById("audioFile");
+      const toggleAudioBtn = document.getElementById("toggleAudio");
+      const resetAudioBtn = document.getElementById("resetAudio");
+      const audioEl = document.getElementById("audio");
+      const localPanelEl = document.getElementById("localPanel");
+      const ytPanelEl = document.getElementById("ytPanel");
+      const youtubeWrapEl = document.getElementById("youtubeWrap");
+      const youtubeUrlEl = document.getElementById("youtubeUrl");
+      const loadYoutubeBtn = document.getElementById("loadYoutube");
+      const bpmEl = document.getElementById("bpm");
+      const bandReadoutEl = document.getElementById("bandReadout");
+
+      let audioContext;
+      let analyser;
+      let frequencyData;
+      let mediaSource;
+      let currentObjectUrl;
+      let player;
+      let pendingYoutubeVideoId = null;
+      let youtubeFallbackStartTime = 0;
+      let youtubeLoadCheckTimer = null;
+      let lastBandReadoutUpdate = 0;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 0, 18);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const particleCount = 11500;
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+      const seeds = new Float32Array(particleCount);
+      const baseRadius = new Float32Array(particleCount);
+      const baseTheta = new Float32Array(particleCount);
+      const baseY = new Float32Array(particleCount);
+      const flowSeed = new Float32Array(particleCount);
+      const particleGroups = new Uint8Array(particleCount);
+      const tempColor = new THREE.Color();
+      const groupHue = [0.07, 0.37, 0.8, 0.56];
+      const groupSaturation = [0.74, 0.68, 0.78, 0.4];
+      const groupLightness = [0.43, 0.45, 0.5, 0.6];
+
+      const armCount = 5;
+      for (let i = 0; i < particleCount; i += 1) {
+        const radius = 1.9 + Math.pow(Math.random(), 1.35) * 9.2;
+        const arm = i % armCount;
+        const armAngle = (arm / armCount) * Math.PI * 2;
+        const theta = armAngle + radius * 0.82 + (Math.random() - 0.5) * 0.68;
+        const y = (Math.random() - 0.5) * (0.75 + radius * 0.16);
+
+        const x = Math.cos(theta) * radius;
+        const z = Math.sin(theta) * radius;
+
+        const idx = i * 3;
+        positions[idx] = x;
+        positions[idx + 1] = y;
+        positions[idx + 2] = z;
+
+        seeds[i] = Math.random();
+        flowSeed[i] = Math.random() * Math.PI * 2;
+        baseRadius[i] = Math.hypot(x, z);
+        baseTheta[i] = Math.atan2(z, x);
+        baseY[i] = y;
+        const radialGroup = radius < 3.6 ? 0 : radius < 6.1 ? 1 : radius < 8.6 ? 2 : 3;
+        // Add a small cross-mix so each band can appear outside its main lane.
+        particleGroups[i] = Math.random() < 0.14 ? Math.floor(Math.random() * 4) : radialGroup;
+        const group = particleGroups[i];
+        tempColor.setHSL(groupHue[group] + (Math.random() - 0.5) * 0.03, groupSaturation[group], groupLightness[group]);
+        colors[idx] = tempColor.r;
+        colors[idx + 1] = tempColor.g;
+        colors[idx + 2] = tempColor.b;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+      const dotTexture = (() => {
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2);
+        grad.addColorStop(0, "rgba(255,255,255,1)");
+        grad.addColorStop(0.45, "rgba(255,255,255,0.92)");
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        return new THREE.CanvasTexture(canvas);
+      })();
+
+      const material = new THREE.PointsMaterial({
+        size: 0.058,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.88,
+        map: dotTexture,
+        alphaMap: dotTexture,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      const particles = new THREE.Points(geometry, material);
+      scene.add(particles);
+
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(1.2, 28, 28),
+        new THREE.MeshBasicMaterial({ color: 0x8ad9ff, transparent: true, opacity: 0.19 })
+      );
+      scene.add(glow);
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function applyMode(mode) {
+        state.mode = mode;
+        const isYoutube = mode === "youtube";
+        localPanelEl.classList.toggle("hide", isYoutube);
+        ytPanelEl.classList.toggle("hide", !isYoutube);
+        youtubeWrapEl.classList.toggle("hide", !isYoutube);
+        if (isYoutube) {
+          setStatus("YouTube sync mode active. Press play in the embedded player.");
+        } else {
+          setStatus(audioEl.src ? "Local audio mode active." : "Load an audio file to start local reactive mode.");
+        }
+      }
+
+      function setupAudioGraph() {
+        if (audioContext) {
+          return;
+        }
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.88;
+        mediaSource = audioContext.createMediaElementSource(audioEl);
+        mediaSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+        frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      }
+
+      function averageFrequency(fromBin, toBin) {
+        if (!frequencyData) {
+          return 0;
+        }
+        let sum = 0;
+        const upper = Math.min(toBin, frequencyData.length);
+        const lower = Math.max(0, fromBin);
+        const width = Math.max(1, upper - lower);
+        for (let i = lower; i < upper; i += 1) {
+          sum += frequencyData[i];
+        }
+        return sum / width;
+      }
+
+      function frequencyToBin(hz) {
+        if (!audioContext || !frequencyData) {
+          return 0;
+        }
+        const nyquist = audioContext.sampleRate / 2;
+        return Math.floor((Math.max(0, hz) / nyquist) * frequencyData.length);
+      }
+
+      function averageFrequencyHz(minHz, maxHz) {
+        return averageFrequency(frequencyToBin(minHz), frequencyToBin(maxHz));
+      }
+
+      function shapeBand(rawValue, gain) {
+        const normalized = (rawValue / 255) * state.sensitivity * gain;
+        return Math.min(1.4, Math.pow(Math.max(0, normalized), 0.86));
+      }
+
+      function updateBandReadout(nowSeconds) {
+        if (!bandReadoutEl || nowSeconds - lastBandReadoutUpdate < 0.12) {
+          return;
+        }
+        lastBandReadoutUpdate = nowSeconds;
+        const { bass, mid, treble, air } = state.bands;
+        bandReadoutEl.textContent =
+          `Bass ${bass.toFixed(2)} · Mid ${mid.toFixed(2)} · Treble ${treble.toFixed(2)} · Air ${air.toFixed(2)}`;
+      }
+
+      function parseYouTubeId(input) {
+        const trimmed = input.trim();
+        const rawIdPattern = /^[a-zA-Z0-9_-]{11}$/;
+        if (rawIdPattern.test(trimmed)) {
+          return trimmed;
+        }
+
+        const candidates = [trimmed];
+        if (!/^https?:\/\//i.test(trimmed)) {
+          candidates.push(`https://${trimmed}`);
+        }
+
+        for (const candidate of candidates) {
+          try {
+            const url = new URL(candidate);
+            if (url.hostname.includes("youtu.be")) {
+              return url.pathname.replace("/", "").slice(0, 11);
+            }
+            if (url.searchParams.get("v")) {
+              return url.searchParams.get("v").slice(0, 11);
+            }
+            const shortsMatch = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+            if (shortsMatch) {
+              return shortsMatch[1];
+            }
+            const embedMatch = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+            if (embedMatch) {
+              return embedMatch[1];
+            }
+          } catch {
+            // Keep scanning candidate formats.
+          }
+        }
+
+        return "";
+      }
+
+      function createYoutubeFallback(videoId) {
+        const playerRoot = document.getElementById("player");
+        if (youtubeLoadCheckTimer) {
+          clearTimeout(youtubeLoadCheckTimer);
+        }
+        playerRoot.innerHTML =
+          `<iframe ` +
+          `width="100%" height="100%" ` +
+          `src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&playsinline=1" ` +
+          `title="YouTube video player" frameborder="0" ` +
+          `allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" ` +
+          `referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>` +
+          `</iframe>`;
+        youtubeFallbackStartTime = performance.now() * 0.001;
+        youtubeLoadCheckTimer = setTimeout(() => {
+          const iframe = document.querySelector("#player iframe");
+          if (!iframe) {
+            setStatus("YouTube embed appears blocked. Disable content blocking for localhost and try again.");
+          }
+        }, 1400);
+      }
+
+      function createYoutubePlayer(videoId) {
+        if (!window.YT || !window.YT.Player) {
+          pendingYoutubeVideoId = videoId;
+          createYoutubeFallback(videoId);
+          setStatus(`Loaded YouTube embed for ${videoId}. API not ready, using fallback mode.`);
+          return false;
+        }
+
+        if (player && player.destroy) {
+          player.destroy();
+        }
+
+        const playerRoot = document.getElementById("player");
+        playerRoot.innerHTML = "";
+        player = new window.YT.Player("player", {
+          width: "100%",
+          height: "100%",
+          videoId,
+          playerVars: {
+            controls: 1,
+            rel: 0,
+            modestbranding: 1,
+            playsinline: 1,
+          },
+          events: {
+            onReady: () => {
+              if (state.mode === "youtube") {
+                setStatus(`Loaded YouTube video ${videoId}. Hit play in the embed.`);
+              }
+            },
+            onError: () => {
+              if (state.mode === "youtube") {
+                setStatus("Could not initialize YouTube player. Try disabling blockers or reloading.");
+              }
+            },
+          },
+        });
+        pendingYoutubeVideoId = null;
+        return true;
+      }
+
+      window.onYouTubeIframeAPIReady = () => {
+        const initialId = pendingYoutubeVideoId || parseYouTubeId(youtubeUrlEl.value) || "jfKfPfyJRdk";
+        createYoutubePlayer(initialId);
+      };
+
+      function getYoutubePulse() {
+        if (player && typeof player.getCurrentTime === "function") {
+          const t = player.getCurrentTime();
+          const beat = Math.max(0, Math.sin((t * state.bpm * Math.PI * 2) / 60));
+          const harmonic = (Math.sin(t * 1.9) + 1) * 0.14;
+          return Math.min(1, beat * 0.75 + harmonic);
+        }
+
+        const t = Math.max(0, performance.now() * 0.001 - youtubeFallbackStartTime);
+        const beat = Math.max(0, Math.sin((t * state.bpm * Math.PI * 2) / 60));
+        const harmonic = (Math.sin(t * 1.9) + 1) * 0.14;
+        return Math.min(1, beat * 0.75 + harmonic);
+      }
+
+      function updateEnergy() {
+        if (state.mode === "local" && analyser) {
+          analyser.getByteFrequencyData(frequencyData);
+          const bassRaw = averageFrequencyHz(25, 140);
+          const midRaw = averageFrequencyHz(140, 1500);
+          const trebleRaw = averageFrequencyHz(1500, 5800);
+          const airRaw = averageFrequencyHz(5800, 12000);
+
+          state.targetBands.bass = shapeBand(bassRaw, 1.8);
+          state.targetBands.mid = shapeBand(midRaw, 1.55);
+          state.targetBands.treble = shapeBand(trebleRaw, 1.42);
+          state.targetBands.air = shapeBand(airRaw, 1.2);
+        } else if (state.mode === "youtube") {
+          const pulse = getYoutubePulse() * state.sensitivity;
+          const t = performance.now() * 0.001;
+          state.targetBands.bass = Math.min(1.05, pulse * 0.88 + Math.max(0, Math.sin(t * 0.8)) * 0.06);
+          state.targetBands.mid = Math.min(1, pulse * 0.7 + (Math.sin(t * 1.4) + 1) * 0.05);
+          state.targetBands.treble = Math.min(1, pulse * 0.58 + (Math.sin(t * 2.1) + 1) * 0.06);
+          state.targetBands.air = Math.min(1, pulse * 0.42 + (Math.sin(t * 2.8) + 1) * 0.05);
+        } else {
+          state.targetBands.bass = 0.04;
+          state.targetBands.mid = 0.04;
+          state.targetBands.treble = 0.04;
+          state.targetBands.air = 0.04;
+        }
+
+        state.bands.bass += (state.targetBands.bass - state.bands.bass) * 0.08;
+        state.bands.mid += (state.targetBands.mid - state.bands.mid) * 0.11;
+        state.bands.treble += (state.targetBands.treble - state.bands.treble) * 0.16;
+        state.bands.air += (state.targetBands.air - state.bands.air) * 0.19;
+
+        state.targetEnergy =
+          state.bands.bass * 0.46 +
+          state.bands.mid * 0.29 +
+          state.bands.treble * 0.16 +
+          state.bands.air * 0.09;
+        state.energy += (state.targetEnergy - state.energy) * 0.08;
+      }
+
+      function animate(ms) {
+        const t = ms * 0.001;
+        updateEnergy();
+        updateBandReadout(t);
+
+        const bass = state.bands.bass;
+        const mid = state.bands.mid;
+        const treble = state.bands.treble;
+        const air = state.bands.air;
+        const energyByGroup = [bass, mid, treble, air];
+
+        particles.rotation.x = Math.sin(t * 0.11) * (0.12 + air * 0.08);
+        particles.rotation.y = t * (0.028 + mid * 0.045);
+        material.size = 0.045 + bass * 0.028 + treble * 0.012;
+        glow.scale.setScalar(0.95 + bass * 0.62 + mid * 0.24);
+        glow.material.opacity = 0.08 + air * 0.16 + bass * 0.06;
+
+        for (let i = 0; i < particleCount; i += 1) {
+          const idx = i * 3;
+          const seed = seeds[i];
+          const group = particleGroups[i];
+
+          const r0 = baseRadius[i];
+          const theta0 = baseTheta[i];
+          const y0 = baseY[i];
+          const travelPhase = t * (0.18 + mid * 0.32) + flowSeed[i];
+
+          // Recursive swirl field: nested harmonics create a traveling tunnel-like twirl.
+          const recursiveA = Math.sin(r0 * 1.2 - travelPhase + Math.sin(travelPhase * 0.55 + seed * 4.2));
+          const recursiveB = Math.sin(r0 * 2.05 + travelPhase * 0.72 + recursiveA * 1.7);
+          const recursiveMix = recursiveA * 0.6 + recursiveB * 0.4;
+
+          let theta;
+          let radius;
+          let y;
+
+          if (group === 0) {
+            // Bass: dense core pulses and slow heavy orbit.
+            const kick = bass * (0.26 + 0.34 * Math.max(0, Math.sin(t * 2.4 + seed * 8.5)));
+            theta = theta0 + t * (0.09 + mid * 0.12) + recursiveMix * (0.06 + treble * 0.04);
+            radius = r0 * (0.88 + kick * 0.82) + recursiveA * (0.06 + air * 0.07);
+            y = y0 * 0.5 + Math.sin(theta * 1.3 + t * 0.8 + seed * 4) * (0.08 + mid * 0.14);
+          } else if (group === 1) {
+            // Mid: broad ribbon-like spirals that feel like travel lanes.
+            theta = theta0 + t * (0.2 + mid * 0.5) + recursiveMix * (0.14 + mid * 0.16);
+            radius = r0 * (1 + bass * 0.08) + recursiveB * (0.09 + mid * 0.18);
+            y = y0 * (1 + mid * 0.2) + Math.sin(theta * 2 + t * 0.85 + seed * 2.5) * (0.15 + air * 0.14);
+          } else if (group === 2) {
+            // Treble: fast twirls/spark-like detail.
+            theta = theta0 + t * (0.34 + treble * 0.95) + recursiveMix * (0.18 + treble * 0.24);
+            radius =
+              r0 +
+              recursiveA * (0.06 + treble * 0.2) +
+              Math.sin(t * 5.6 + seed * 28 + r0 * 1.7) * (0.02 + treble * 0.08);
+            y = y0 + Math.sin(t * 4.8 + seed * 26 + theta * 2.3) * (0.1 + treble * 0.34);
+          } else {
+            // Air: high-frequency halo drift with long floating motion.
+            theta = theta0 + t * (0.12 + air * 0.32) + recursiveMix * (0.11 + air * 0.19);
+            radius = r0 * (1 + air * 0.14) + recursiveB * (0.12 + air * 0.24);
+            y =
+              y0 * (1 + air * 0.2) +
+              Math.sin(theta + t * 0.5 + seed * 6) * (0.24 + air * 0.34) +
+              recursiveA * (0.06 + air * 0.21);
+          }
+
+          positions[idx] = Math.cos(theta) * radius;
+          positions[idx + 1] = y;
+          positions[idx + 2] = Math.sin(theta) * radius;
+
+          const bandDrive = energyByGroup[group];
+          const hueShift =
+            group === 0
+              ? bass * 0.03
+              : group === 1
+                ? mid * 0.04
+                : group === 2
+                  ? treble * 0.06
+                  : air * 0.05;
+          const hue = (groupHue[group] + recursiveMix * 0.02 + t * 0.003 + hueShift) % 1;
+          const saturation = Math.min(0.95, groupSaturation[group] + bandDrive * 0.24 + treble * 0.06);
+          const lightness = Math.min(0.9, groupLightness[group] + bandDrive * 0.21 + state.energy * 0.06);
+          tempColor.setHSL(hue, saturation, lightness);
+          colors[idx] = tempColor.r;
+          colors[idx + 1] = tempColor.g;
+          colors[idx + 2] = tempColor.b;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.attributes.color.needsUpdate = true;
+
+        const cameraDrift = t * 0.11;
+        camera.position.x = Math.sin(cameraDrift) * (2.4 + bass * 0.9);
+        camera.position.z = 15 + Math.cos(cameraDrift) * (1.5 + mid * 0.8);
+        camera.position.y = Math.sin(t * 0.21) * (0.8 + air * 0.5);
+        camera.lookAt(0, Math.sin(t * 0.33) * 0.35, 0);
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      modeEl.addEventListener("change", () => {
+        applyMode(modeEl.value);
+      });
+
+      sensEl.addEventListener("input", () => {
+        state.sensitivity = Number(sensEl.value);
+        sensValueEl.textContent = `${state.sensitivity.toFixed(1)}x`;
+      });
+
+      bpmEl.addEventListener("input", () => {
+        const value = Number(bpmEl.value);
+        if (!Number.isNaN(value)) {
+          state.bpm = Math.max(60, Math.min(200, value));
+        }
+      });
+
+      loadYoutubeBtn.addEventListener("click", () => {
+        const id = parseYouTubeId(youtubeUrlEl.value);
+        if (!id) {
+          setStatus("Could not parse that YouTube URL/ID. Example: https://www.youtube.com/watch?v=jfKfPfyJRdk");
+          return;
+        }
+        const usedApiPlayer = createYoutubePlayer(id);
+        if (usedApiPlayer) {
+          setStatus(`Loading YouTube video ${id}...`);
+        }
+      });
+
+      audioFileEl.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          return;
+        }
+
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+        }
+
+        currentObjectUrl = URL.createObjectURL(file);
+        audioEl.src = currentObjectUrl;
+        audioEl.load();
+
+        setupAudioGraph();
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+
+        await audioEl.play().catch(() => {
+          setStatus("Audio file loaded. Press Play/Pause to start if autoplay is blocked.");
+        });
+        setStatus(`Loaded ${file.name}. Local audio mode is reactive.`);
+      });
+
+      toggleAudioBtn.addEventListener("click", async () => {
+        if (!audioEl.src) {
+          setStatus("Pick an audio file first.");
+          return;
+        }
+
+        setupAudioGraph();
+
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+
+        if (audioEl.paused) {
+          await audioEl.play();
+          setStatus("Playing local audio.");
+        } else {
+          audioEl.pause();
+          setStatus("Paused local audio.");
+        }
+      });
+
+      resetAudioBtn.addEventListener("click", () => {
+        if (!audioEl.src) {
+          setStatus("Pick an audio file first.");
+          return;
+        }
+        audioEl.currentTime = 0;
+        setStatus("Restarted audio track.");
+      });
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      applyMode(state.mode);
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>
