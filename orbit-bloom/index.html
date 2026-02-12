@@ -425,7 +425,7 @@
         <label for="mode">Mode</label>
         <select id="mode">
           <option value="local">Local Audio Reactive</option>
-          <option value="tab">Tab Audio Visualizer</option>
+          <option value="tab" selected>Tab Audio Visualizer</option>
         </select>
       </div>
 
@@ -434,7 +434,7 @@
         <input id="sensitivity" type="range" min="0.5" max="2.5" step="0.1" value="1.4" />
       </div>
 
-      <section id="localPanel">
+      <section id="localPanel" class="hide">
         <div class="group">
           <label for="audioFile">Audio File</label>
           <input id="audioFile" type="file" accept="audio/*" />
@@ -453,7 +453,7 @@
         </div>
       </section>
 
-      <section id="tabPanel" class="hide">
+      <section id="tabPanel">
         <div class="group row">
           <button id="startCapture">Capture Tab Audio</button>
           <button id="stopCapture">Stop Capture</button>
@@ -462,7 +462,7 @@
         <p class="mini">Select any browser tab and enable Share audio to drive live reactivity.</p>
       </section>
 
-      <p id="status">Load an audio file to start local reactive mode.</p>
+      <p id="status">Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab.</p>
       <p class="mini">Tab audio uses secure capture permission. No direct speaker-output access is needed.</p>
     </aside>
     <div id="hudGutterHit" class="hud-gutter-hit"></div>
