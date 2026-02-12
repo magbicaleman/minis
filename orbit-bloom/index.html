@@ -35,10 +35,7 @@
         overflow: hidden;
         color: var(--text);
         font-family: "Space Grotesk", sans-serif;
-        background:
-          radial-gradient(1400px 600px at 15% -10%, rgba(71, 193, 255, 0.18), transparent 60%),
-          radial-gradient(1000px 500px at 90% 0%, rgba(255, 197, 90, 0.2), transparent 55%),
-          linear-gradient(145deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
+        background: #02040a;
       }
 
       .hud {
@@ -227,6 +224,7 @@
           <button id="resetAudio">Restart</button>
         </div>
         <p id="bandReadout" class="mini">Bass 0.00 · Mid 0.00 · Treble 0.00 · Air 0.00</p>
+        <p id="flowReadout" class="mini">Flow 0.00 · Calm 0.00 · Pulse 0.00 · BPM 110</p>
         <div class="band-legend">
           <span class="band-chip bass-chip">Bass: Pulse Core</span>
           <span class="band-chip mid-chip">Mid: Spiral Arms</span>
@@ -268,8 +266,16 @@
         mode: "local",
         sensitivity: 1.4,
         bpm: 110,
+        estimatedBpm: 110,
         energy: 0.03,
         targetEnergy: 0.03,
+        flow: 0.16,
+        targetFlow: 0.16,
+        pulse: 0,
+        calm: 0.62,
+        targetCalm: 0.62,
+        motion: 0.18,
+        targetMotion: 0.18,
         bands: {
           bass: 0.03,
           mid: 0.03,
@@ -299,6 +305,7 @@
       const loadYoutubeBtn = document.getElementById("loadYoutube");
       const bpmEl = document.getElementById("bpm");
       const bandReadoutEl = document.getElementById("bandReadout");
+      const flowReadoutEl = document.getElementById("flowReadout");
 
       let audioContext;
       let analyser;
@@ -310,59 +317,105 @@
       let youtubeFallbackStartTime = 0;
       let youtubeLoadCheckTimer = null;
       let lastBandReadoutUpdate = 0;
+      let lastFlowReadoutUpdate = 0;
+      let lastFrameSeconds = 0;
+      let lastBassLevel = 0;
+      let dynamicFluxThreshold = 0.05;
+      let lastOnsetTime = 0;
+      const onsetHistory = [];
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 0, 18);
+      camera.position.set(0, 0, 4.5);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      const particleCount = 11500;
+      const particleCount = 12800;
+      const tunnelDepth = 120;
+      const tunnelFront = 6;
       const positions = new Float32Array(particleCount * 3);
       const colors = new Float32Array(particleCount * 3);
       const seeds = new Float32Array(particleCount);
       const baseRadius = new Float32Array(particleCount);
       const baseTheta = new Float32Array(particleCount);
-      const baseY = new Float32Array(particleCount);
+      const depthOffset = new Float32Array(particleCount);
       const flowSeed = new Float32Array(particleCount);
+      const laneJitter = new Float32Array(particleCount);
       const particleGroups = new Uint8Array(particleCount);
+      const kaleidoMix = new Float32Array(particleCount);
+      const kaleidoSides = new Uint8Array(particleCount);
+      const kaleidoPhase = new Float32Array(particleCount);
       const tempColor = new THREE.Color();
+      const laserColor = new THREE.Color();
       const groupHue = [0.07, 0.37, 0.8, 0.56];
       const groupSaturation = [0.74, 0.68, 0.78, 0.4];
       const groupLightness = [0.43, 0.45, 0.5, 0.6];
 
-      const armCount = 5;
-      for (let i = 0; i < particleCount; i += 1) {
-        const radius = 1.9 + Math.pow(Math.random(), 1.35) * 9.2;
-        const arm = i % armCount;
-        const armAngle = (arm / armCount) * Math.PI * 2;
-        const theta = armAngle + radius * 0.82 + (Math.random() - 0.5) * 0.68;
-        const y = (Math.random() - 0.5) * (0.75 + radius * 0.16);
+      function pickParticleGroup() {
+        const roll = Math.random();
+        if (roll < 0.22) {
+          return 0; // Bass
+        }
+        if (roll < 0.57) {
+          return 1; // Mid
+        }
+        if (roll < 0.81) {
+          return 2; // Treble
+        }
+        return 3; // Air
+      }
 
-        const x = Math.cos(theta) * radius;
-        const z = Math.sin(theta) * radius;
+      function laneRadiusForGroup(group) {
+        if (group === 0) {
+          return 0.4 + Math.random() * 1.6;
+        }
+        if (group === 1) {
+          return 1.7 + Math.random() * 2.6;
+        }
+        if (group === 2) {
+          return 3.9 + Math.random() * 2.6;
+        }
+        return 6.2 + Math.random() * 3.1;
+      }
 
+      function spawnParticle(i, zValue, keepGroup = false) {
         const idx = i * 3;
-        positions[idx] = x;
-        positions[idx + 1] = y;
-        positions[idx + 2] = z;
-
+        const group = keepGroup ? particleGroups[i] : pickParticleGroup();
+        particleGroups[i] = group;
         seeds[i] = Math.random();
         flowSeed[i] = Math.random() * Math.PI * 2;
-        baseRadius[i] = Math.hypot(x, z);
-        baseTheta[i] = Math.atan2(z, x);
-        baseY[i] = y;
-        const radialGroup = radius < 3.6 ? 0 : radius < 6.1 ? 1 : radius < 8.6 ? 2 : 3;
-        // Add a small cross-mix so each band can appear outside its main lane.
-        particleGroups[i] = Math.random() < 0.14 ? Math.floor(Math.random() * 4) : radialGroup;
-        const group = particleGroups[i];
-        tempColor.setHSL(groupHue[group] + (Math.random() - 0.5) * 0.03, groupSaturation[group], groupLightness[group]);
+        laneJitter[i] = Math.random() * 2 - 1;
+        baseRadius[i] = laneRadiusForGroup(group);
+        baseTheta[i] = Math.random() * Math.PI * 2;
+        depthOffset[i] = zValue;
+
+        const kaleidoChance = group === 2 ? 0.4 : group === 3 ? 0.26 : 0.11;
+        if (Math.random() < kaleidoChance) {
+          kaleidoMix[i] = group === 2 ? 0.9 : group === 3 ? 0.72 : 0.5;
+          kaleidoSides[i] = group === 2 ? 6 + Math.floor(Math.random() * 5) : 4 + Math.floor(Math.random() * 4);
+          kaleidoPhase[i] = Math.random() * Math.PI * 2;
+        } else {
+          kaleidoMix[i] = 0;
+          kaleidoSides[i] = 0;
+          kaleidoPhase[i] = 0;
+        }
+
+        positions[idx] = Math.cos(baseTheta[i]) * baseRadius[i];
+        positions[idx + 1] = Math.sin(baseTheta[i]) * baseRadius[i];
+        positions[idx + 2] = zValue;
+
+        tempColor.setHSL(groupHue[group], groupSaturation[group], groupLightness[group]);
         colors[idx] = tempColor.r;
         colors[idx + 1] = tempColor.g;
         colors[idx + 2] = tempColor.b;
+      }
+
+      for (let i = 0; i < particleCount; i += 1) {
+        const zValue = -Math.random() * tunnelDepth;
+        spawnParticle(i, zValue);
       }
 
       const geometry = new THREE.BufferGeometry();
@@ -384,6 +437,97 @@
         return new THREE.CanvasTexture(canvas);
       })();
 
+      function createShapeTexture(kind) {
+        const size = 96;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const cx = size * 0.5;
+        const cy = size * 0.5;
+        const r = size * 0.36;
+
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = "rgba(255,255,255,1)";
+
+        const drawPolygon = (sides, rotation) => {
+          ctx.beginPath();
+          for (let i = 0; i < sides; i += 1) {
+            const a = rotation + (i * Math.PI * 2) / sides;
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r;
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          ctx.fill();
+        };
+
+        if (kind === "diamond") {
+          drawPolygon(4, Math.PI * 0.25);
+        } else if (kind === "square") {
+          drawPolygon(4, 0);
+        } else if (kind === "triangle") {
+          drawPolygon(3, -Math.PI * 0.5);
+        } else if (kind === "hex") {
+          drawPolygon(6, Math.PI / 6);
+        } else if (kind === "ring") {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.57, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalCompositeOperation = "source-over";
+        } else if (kind === "star") {
+          ctx.beginPath();
+          const points = 5;
+          for (let i = 0; i < points * 2; i += 1) {
+            const a = -Math.PI * 0.5 + (i * Math.PI) / points;
+            const rr = i % 2 === 0 ? r : r * 0.43;
+            const x = cx + Math.cos(a) * rr;
+            const y = cy + Math.sin(a) * rr;
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Feather edge for softer additive blend.
+        ctx.globalCompositeOperation = "destination-in";
+        const fade = ctx.createRadialGradient(cx, cy, r * 0.25, cx, cy, r * 1.12);
+        fade.addColorStop(0, "rgba(255,255,255,1)");
+        fade.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = fade;
+        ctx.fillRect(0, 0, size, size);
+        ctx.globalCompositeOperation = "source-over";
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      const morphTextures = [
+        createShapeTexture("diamond"),
+        createShapeTexture("square"),
+        createShapeTexture("triangle"),
+        createShapeTexture("star"),
+        createShapeTexture("ring"),
+        createShapeTexture("hex"),
+      ];
+      let morphTextureIndex = 0;
+      let lastMorphSwitchTime = 0;
+
       const material = new THREE.PointsMaterial({
         size: 0.058,
         sizeAttenuation: true,
@@ -399,11 +543,79 @@
       const particles = new THREE.Points(geometry, material);
       scene.add(particles);
 
-      const glow = new THREE.Mesh(
-        new THREE.SphereGeometry(1.2, 28, 28),
-        new THREE.MeshBasicMaterial({ color: 0x8ad9ff, transparent: true, opacity: 0.19 })
-      );
-      scene.add(glow);
+      const accentIndices = [];
+      for (let i = 0; i < particleCount; i += 1) {
+        const g = particleGroups[i];
+        if ((g === 2 || g === 3) && Math.random() < 0.24) {
+          accentIndices.push(i);
+        }
+      }
+      const minAccent = Math.floor(particleCount * 0.13);
+      for (let i = 0; i < particleCount && accentIndices.length < minAccent; i += 1) {
+        if (Math.random() < 0.13) {
+          accentIndices.push(i);
+        }
+      }
+
+      const accentCount = accentIndices.length;
+      const accentPositions = new Float32Array(accentCount * 3);
+      const accentColors = new Float32Array(accentCount * 3);
+      const accentGeometry = new THREE.BufferGeometry();
+      accentGeometry.setAttribute("position", new THREE.BufferAttribute(accentPositions, 3));
+      accentGeometry.setAttribute("color", new THREE.BufferAttribute(accentColors, 3));
+
+      const accentMaterial = new THREE.PointsMaterial({
+        size: 0.075,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        map: morphTextures[0],
+        alphaMap: morphTextures[0],
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const accentParticles = new THREE.Points(accentGeometry, accentMaterial);
+      scene.add(accentParticles);
+
+      const laserIndices = [];
+      for (let i = 0; i < particleCount; i += 1) {
+        const g = particleGroups[i];
+        if ((g === 2 || g === 3) && Math.random() < 0.05) {
+          laserIndices.push(i);
+        }
+      }
+      const minLasers = Math.floor(particleCount * 0.025);
+      for (let i = 0; i < particleCount && laserIndices.length < minLasers; i += 1) {
+        if (Math.random() < 0.02) {
+          laserIndices.push(i);
+        }
+      }
+
+      const laserCount = laserIndices.length;
+      const laserPositions = new Float32Array(laserCount * 2 * 3);
+      const laserColors = new Float32Array(laserCount * 2 * 3);
+      const laserPrevPositions = new Float32Array(laserCount * 3);
+      const laserVel = new Float32Array(laserCount);
+      const laserReady = new Uint8Array(laserCount);
+
+      const laserGeometry = new THREE.BufferGeometry();
+      const laserPositionAttr = new THREE.BufferAttribute(laserPositions, 3);
+      const laserColorAttr = new THREE.BufferAttribute(laserColors, 3);
+      laserPositionAttr.setUsage(THREE.DynamicDrawUsage);
+      laserColorAttr.setUsage(THREE.DynamicDrawUsage);
+      laserGeometry.setAttribute("position", laserPositionAttr);
+      laserGeometry.setAttribute("color", laserColorAttr);
+      const laserMaterial = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const laserLines = new THREE.LineSegments(laserGeometry, laserMaterial);
+      laserLines.frustumCulled = false;
+      scene.add(laserLines);
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -475,6 +687,47 @@
         const { bass, mid, treble, air } = state.bands;
         bandReadoutEl.textContent =
           `Bass ${bass.toFixed(2)} · Mid ${mid.toFixed(2)} · Treble ${treble.toFixed(2)} · Air ${air.toFixed(2)}`;
+      }
+
+      function normalizeBpm(bpmValue) {
+        let bpm = bpmValue;
+        while (bpm < 72) {
+          bpm *= 2;
+        }
+        while (bpm > 176) {
+          bpm *= 0.5;
+        }
+        return THREE.MathUtils.clamp(bpm, 72, 176);
+      }
+
+      function estimateBpmFromOnsets() {
+        if (onsetHistory.length < 4) {
+          return state.estimatedBpm;
+        }
+
+        const intervals = [];
+        for (let i = 1; i < onsetHistory.length; i += 1) {
+          const interval = onsetHistory[i] - onsetHistory[i - 1];
+          if (interval > 0.18 && interval < 1.2) {
+            intervals.push(interval);
+          }
+        }
+        if (!intervals.length) {
+          return state.estimatedBpm;
+        }
+
+        intervals.sort((a, b) => a - b);
+        const median = intervals[Math.floor(intervals.length / 2)];
+        return normalizeBpm(60 / median);
+      }
+
+      function updateFlowReadout(nowSeconds) {
+        if (!flowReadoutEl || nowSeconds - lastFlowReadoutUpdate < 0.14) {
+          return;
+        }
+        lastFlowReadoutUpdate = nowSeconds;
+        flowReadoutEl.textContent =
+          `Flow ${state.flow.toFixed(2)} · Calm ${state.calm.toFixed(2)} · Pulse ${state.pulse.toFixed(2)} · BPM ${Math.round(state.estimatedBpm)}`;
       }
 
       function parseYouTubeId(input) {
@@ -596,8 +849,12 @@
         return Math.min(1, beat * 0.75 + harmonic);
       }
 
-      function updateEnergy() {
-        if (state.mode === "local" && analyser) {
+      function updateEnergy(nowSeconds) {
+        const localSourceReady = state.mode === "local" && analyser;
+        const localPlaybackActive =
+          localSourceReady && !!audioEl.src && !audioEl.paused && !audioEl.ended && audioEl.currentTime > 0.45;
+
+        if (localPlaybackActive) {
           analyser.getByteFrequencyData(frequencyData);
           const bassRaw = averageFrequencyHz(25, 140);
           const midRaw = averageFrequencyHz(140, 1500);
@@ -608,6 +865,62 @@
           state.targetBands.mid = shapeBand(midRaw, 1.55);
           state.targetBands.treble = shapeBand(trebleRaw, 1.42);
           state.targetBands.air = shapeBand(airRaw, 1.2);
+
+          const bassLevel = state.targetBands.bass;
+          const flux = Math.max(0, bassLevel - lastBassLevel);
+          dynamicFluxThreshold = dynamicFluxThreshold * 0.92 + flux * 0.08;
+          const onsetThreshold = Math.max(0.03, dynamicFluxThreshold * 1.85);
+          const mixLevel = state.targetBands.bass * 0.7 + state.targetBands.mid * 0.25 + state.targetBands.treble * 0.05;
+
+          if (flux > onsetThreshold && bassLevel > 0.26 && mixLevel > 0.21 && nowSeconds - lastOnsetTime > 0.17) {
+            lastOnsetTime = nowSeconds;
+            onsetHistory.push(nowSeconds);
+            if (onsetHistory.length > 20) {
+              onsetHistory.shift();
+            }
+          }
+          lastBassLevel = bassLevel;
+
+          const estimated = estimateBpmFromOnsets();
+          state.estimatedBpm += (estimated - state.estimatedBpm) * 0.08;
+          const beatInterval = 60 / state.estimatedBpm;
+          const timeSinceOnset = Math.max(0, nowSeconds - lastOnsetTime);
+          const beatsSinceOnset = timeSinceOnset / beatInterval;
+          const onsetPulse = lastOnsetTime > 0 ? Math.exp(-beatsSinceOnset * 4.9) : 0;
+          const fallbackPulse =
+            mixLevel > 0.38 ? Math.max(0, Math.sin((nowSeconds * state.estimatedBpm * Math.PI * 2) / 60)) * 0.08 : 0;
+          state.pulse = THREE.MathUtils.clamp(Math.max(onsetPulse, fallbackPulse), 0, 1.35);
+          const rampArm = THREE.MathUtils.clamp((audioEl.currentTime - 1.2) / 3.5, 0, 1);
+          const onsetArm = onsetHistory.length >= 2 ? 1 : onsetHistory.length === 1 ? 0.45 : 0;
+          const transportArm = Math.max(rampArm, onsetArm);
+          state.pulse *= 0.28 + transportArm * 0.72;
+
+          const vocalPresence = THREE.MathUtils.clamp(state.targetBands.mid * 0.62 + state.targetBands.air * 0.44, 0, 1.4);
+          const percussiveDrive = THREE.MathUtils.clamp(
+            state.targetBands.bass * 0.95 + state.targetBands.treble * 0.32 + onsetPulse * 0.9 + state.pulse * 0.6,
+            0,
+            2
+          );
+          const restLift = Math.min(0.55, timeSinceOnset * 0.13);
+          state.targetCalm = THREE.MathUtils.clamp(0.2 + vocalPresence * 0.58 + restLift - percussiveDrive * 0.57, 0.08, 0.92);
+          const targetFlowRaw =
+            0.18 +
+            state.targetBands.bass * 0.54 +
+            state.targetBands.mid * 0.14 +
+            state.pulse * 0.52 -
+            state.targetCalm * 0.36;
+          state.targetFlow = 0.03 + targetFlowRaw * transportArm;
+          state.targetMotion = THREE.MathUtils.clamp(0.1 + (0.32 + state.targetFlow * 0.42 + state.pulse * 0.22) * transportArm, 0.05, 0.98);
+        } else if (state.mode === "local" && localSourceReady) {
+          state.targetBands.bass = 0.012;
+          state.targetBands.mid = 0.012;
+          state.targetBands.treble = 0.012;
+          state.targetBands.air = 0.012;
+          state.targetFlow = 0.03;
+          state.targetCalm = 0.92;
+          state.targetMotion = 0.05;
+          state.pulse *= 0.84;
+          lastBassLevel *= 0.8;
         } else if (state.mode === "youtube") {
           const pulse = getYoutubePulse() * state.sensitivity;
           const t = performance.now() * 0.001;
@@ -615,96 +928,170 @@
           state.targetBands.mid = Math.min(1, pulse * 0.7 + (Math.sin(t * 1.4) + 1) * 0.05);
           state.targetBands.treble = Math.min(1, pulse * 0.58 + (Math.sin(t * 2.1) + 1) * 0.06);
           state.targetBands.air = Math.min(1, pulse * 0.42 + (Math.sin(t * 2.8) + 1) * 0.05);
+          state.estimatedBpm += (state.bpm - state.estimatedBpm) * 0.05;
+          state.pulse += (pulse - state.pulse) * 0.11;
+          state.targetCalm = THREE.MathUtils.clamp(0.62 - pulse * 0.45, 0.12, 0.82);
+          state.targetFlow = 0.2 + pulse * 0.84 + state.targetBands.mid * 0.16 - state.targetCalm * 0.22;
+          state.targetMotion = 0.72;
         } else {
           state.targetBands.bass = 0.04;
           state.targetBands.mid = 0.04;
           state.targetBands.treble = 0.04;
           state.targetBands.air = 0.04;
+          state.targetFlow = 0.05;
+          state.targetCalm = 0.84;
+          state.targetMotion = 0.08;
+          state.pulse *= 0.92;
         }
 
         state.bands.bass += (state.targetBands.bass - state.bands.bass) * 0.08;
         state.bands.mid += (state.targetBands.mid - state.bands.mid) * 0.11;
         state.bands.treble += (state.targetBands.treble - state.bands.treble) * 0.16;
         state.bands.air += (state.targetBands.air - state.bands.air) * 0.19;
+        state.flow += (state.targetFlow - state.flow) * 0.08;
+        state.calm += (state.targetCalm - state.calm) * 0.065;
+        state.motion += (state.targetMotion - state.motion) * 0.08;
 
         state.targetEnergy =
           state.bands.bass * 0.46 +
           state.bands.mid * 0.29 +
           state.bands.treble * 0.16 +
-          state.bands.air * 0.09;
+          state.bands.air * 0.09 +
+          state.pulse * 0.1;
         state.energy += (state.targetEnergy - state.energy) * 0.08;
       }
 
       function animate(ms) {
         const t = ms * 0.001;
-        updateEnergy();
+        const dt = Math.min(0.05, Math.max(0.001, t - lastFrameSeconds || 0.016));
+        lastFrameSeconds = t;
+        updateEnergy(t);
         updateBandReadout(t);
+        updateFlowReadout(t);
 
         const bass = state.bands.bass;
         const mid = state.bands.mid;
         const treble = state.bands.treble;
         const air = state.bands.air;
+        const calm = state.calm;
         const energyByGroup = [bass, mid, treble, air];
+        const coreReaction = THREE.MathUtils.clamp(bass * 0.5 + mid * 0.18 + state.pulse * 0.62 - calm * 0.22, 0, 1.5);
+        const morphTrigger = THREE.MathUtils.clamp(state.pulse * 0.9 + treble * 0.55 + coreReaction * 0.22, 0, 2);
 
-        particles.rotation.x = Math.sin(t * 0.11) * (0.12 + air * 0.08);
-        particles.rotation.y = t * (0.028 + mid * 0.045);
-        material.size = 0.045 + bass * 0.028 + treble * 0.012;
-        glow.scale.setScalar(0.95 + bass * 0.62 + mid * 0.24);
-        glow.material.opacity = 0.08 + air * 0.16 + bass * 0.06;
+        const calmBrake = 1 - calm * 0.62;
+        const motionScale = (0.16 + (1 - calm) * 0.84) * state.motion;
+        const forwardSpeed = Math.max(0.2, (1.35 + state.flow * 9.2 + state.pulse * 6.5) * calmBrake);
+        const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.28) / 6.2, 0, 1);
+        const laserSpeedSoftness = 1 - speedNorm;
+        const laserPresence = THREE.MathUtils.clamp(
+          0.1 + calm * 0.74 + laserSpeedSoftness * 0.54 - state.pulse * 0.3 - morphTrigger * 0.12,
+          0.06,
+          1
+        );
+        particles.rotation.x = Math.sin(t * 0.08 * motionScale) * (0.02 + air * 0.04);
+        particles.rotation.y = Math.sin(t * 0.1 * motionScale) * (0.03 + mid * 0.05);
+        material.size = 0.028 + bass * 0.018 + treble * 0.01 + coreReaction * 0.01;
+        material.opacity = THREE.MathUtils.clamp(0.72 + air * 0.11 + coreReaction * 0.08, 0.6, 0.96);
+        accentMaterial.size = 0.062 + morphTrigger * 0.028;
+        accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13, 0.7, 0.98);
+        laserMaterial.opacity += (0.09 + laserPresence * 0.23 - laserMaterial.opacity) * 0.08;
+
+        if (morphTrigger > 0.72 && t - lastMorphSwitchTime > 0.1) {
+          lastMorphSwitchTime = t;
+          morphTextureIndex = (morphTextureIndex + 1) % morphTextures.length;
+          accentMaterial.map = morphTextures[morphTextureIndex];
+          accentMaterial.alphaMap = morphTextures[morphTextureIndex];
+          accentMaterial.needsUpdate = true;
+        } else if (morphTrigger < 0.2 && t - lastMorphSwitchTime > 0.6 && morphTextureIndex !== 0) {
+          lastMorphSwitchTime = t;
+          morphTextureIndex = 0;
+          accentMaterial.map = morphTextures[morphTextureIndex];
+          accentMaterial.alphaMap = morphTextures[morphTextureIndex];
+          accentMaterial.needsUpdate = true;
+        }
 
         for (let i = 0; i < particleCount; i += 1) {
           const idx = i * 3;
           const seed = seeds[i];
           const group = particleGroups[i];
+          const bandDrive = energyByGroup[group];
+
+          depthOffset[i] += dt * forwardSpeed * (0.72 + seed * 0.9 + bandDrive * 0.5);
+          if (depthOffset[i] > tunnelFront) {
+            spawnParticle(i, -tunnelDepth - Math.random() * 18, true);
+          }
 
           const r0 = baseRadius[i];
           const theta0 = baseTheta[i];
-          const y0 = baseY[i];
-          const travelPhase = t * (0.18 + mid * 0.32) + flowSeed[i];
+          const z = depthOffset[i];
+          const depthNorm = THREE.MathUtils.clamp((z + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
+          const travelPhase = t * (0.26 + mid * 0.24) * motionScale + flowSeed[i] - z * 0.04;
+          const centerX =
+            Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.85 + air * 0.55) +
+            Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * 0.35;
+          const centerY =
+            Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.7 + mid * 0.42) +
+            Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * 0.28;
 
-          // Recursive swirl field: nested harmonics create a traveling tunnel-like twirl.
-          const recursiveA = Math.sin(r0 * 1.2 - travelPhase + Math.sin(travelPhase * 0.55 + seed * 4.2));
-          const recursiveB = Math.sin(r0 * 2.05 + travelPhase * 0.72 + recursiveA * 1.7);
-          const recursiveMix = recursiveA * 0.6 + recursiveB * 0.4;
+          // Layered field keeps motion smooth while preserving a recursive "falling tunnel" shape.
+          const recursiveA = Math.sin(travelPhase + Math.sin(travelPhase * 0.47 + r0 * 1.4));
+          const recursiveB = Math.sin(travelPhase * 1.45 + recursiveA * 1.9 + r0 * 2.2);
+          const recursiveMix = recursiveA * 0.58 + recursiveB * 0.42;
 
           let theta;
           let radius;
-          let y;
 
           if (group === 0) {
-            // Bass: dense core pulses and slow heavy orbit.
-            const kick = bass * (0.26 + 0.34 * Math.max(0, Math.sin(t * 2.4 + seed * 8.5)));
-            theta = theta0 + t * (0.09 + mid * 0.12) + recursiveMix * (0.06 + treble * 0.04);
-            radius = r0 * (0.88 + kick * 0.82) + recursiveA * (0.06 + air * 0.07);
-            y = y0 * 0.5 + Math.sin(theta * 1.3 + t * 0.8 + seed * 4) * (0.08 + mid * 0.14);
+            // Bass: tunnel core compression/expansion, like gravitational pulls.
+            const kick = bass * Math.max(0, Math.sin(t * 3.1 * motionScale + seed * 8)) + state.pulse * 0.34;
+            theta = theta0 + t * (0.2 + mid * 0.14) * motionScale + recursiveMix * (0.07 + treble * 0.04);
+            radius = r0 * (0.8 + kick * 0.8) + recursiveA * (0.05 + air * 0.06);
           } else if (group === 1) {
-            // Mid: broad ribbon-like spirals that feel like travel lanes.
-            theta = theta0 + t * (0.2 + mid * 0.5) + recursiveMix * (0.14 + mid * 0.16);
-            radius = r0 * (1 + bass * 0.08) + recursiveB * (0.09 + mid * 0.18);
-            y = y0 * (1 + mid * 0.2) + Math.sin(theta * 2 + t * 0.85 + seed * 2.5) * (0.15 + air * 0.14);
+            // Mid: dominant guide rails of the journey.
+            theta = theta0 + t * (0.48 + mid * 0.68) * motionScale + recursiveMix * (0.14 + mid * 0.16);
+            radius = r0 * (1 + bass * 0.1) + recursiveB * (0.1 + mid * 0.2);
           } else if (group === 2) {
-            // Treble: fast twirls/spark-like detail.
-            theta = theta0 + t * (0.34 + treble * 0.95) + recursiveMix * (0.18 + treble * 0.24);
+            // Treble: fast twirl accents that streak past.
+            theta = theta0 + t * (0.95 + treble * 1.65) * motionScale + recursiveMix * (0.18 + treble * 0.25);
             radius =
               r0 +
-              recursiveA * (0.06 + treble * 0.2) +
-              Math.sin(t * 5.6 + seed * 28 + r0 * 1.7) * (0.02 + treble * 0.08);
-            y = y0 + Math.sin(t * 4.8 + seed * 26 + theta * 2.3) * (0.1 + treble * 0.34);
+              recursiveA * (0.06 + treble * 0.22) +
+              Math.sin(t * 6.2 * motionScale + seed * 24 + z * 0.22) * (0.02 + treble * 0.09);
           } else {
-            // Air: high-frequency halo drift with long floating motion.
-            theta = theta0 + t * (0.12 + air * 0.32) + recursiveMix * (0.11 + air * 0.19);
-            radius = r0 * (1 + air * 0.14) + recursiveB * (0.12 + air * 0.24);
-            y =
-              y0 * (1 + air * 0.2) +
-              Math.sin(theta + t * 0.5 + seed * 6) * (0.24 + air * 0.34) +
-              recursiveA * (0.06 + air * 0.21);
+            // Air: outer halo drift, keeps spacious atmosphere.
+            theta = theta0 + t * (0.3 + air * 0.56) * motionScale + recursiveMix * (0.11 + air * 0.19);
+            radius = r0 * (1 + air * 0.18) + recursiveB * (0.12 + air * 0.26);
           }
 
-          positions[idx] = Math.cos(theta) * radius;
-          positions[idx + 1] = y;
-          positions[idx + 2] = Math.sin(theta) * radius;
+          // Transfer former orb energy into particles: center-proximal pull/flare.
+          const coreWeight = Math.exp(-r0 * 0.48);
+          radius = Math.max(0.06, radius - coreWeight * coreReaction * 0.42);
 
-          const bandDrive = energyByGroup[group];
+          const kaleidoBase = kaleidoMix[i];
+          const kaleidoAmount = THREE.MathUtils.clamp(
+            kaleidoBase * (0.35 + treble * 0.52 + air * 0.26 + state.pulse * 0.2),
+            0,
+            0.96
+          );
+          if (kaleidoAmount > 0.01) {
+            const sides = Math.max(3, kaleidoSides[i] || 6);
+            const twoPi = Math.PI * 2;
+            const sector = twoPi / sides;
+            const spin = t * (0.07 + treble * 0.34) + z * 0.006 + kaleidoPhase[i];
+            const wrapped = ((theta + spin) % twoPi + twoPi) % twoPi;
+            const sectorIndex = Math.floor(wrapped / sector);
+            const within = wrapped - sectorIndex * sector;
+            const mirroredWithin = within <= sector * 0.5 ? within : sector - within;
+            const mirroredTheta = sectorIndex * sector + mirroredWithin - spin;
+            theta = THREE.MathUtils.lerp(theta, mirroredTheta, kaleidoAmount);
+            radius *= 1 + Math.sin((within / sector) * Math.PI * 2 + t * 0.9 + kaleidoPhase[i]) * 0.055 * kaleidoAmount;
+          }
+
+          const twirlLift = Math.sin(theta * 2.1 + travelPhase * 0.55 + laneJitter[i] * 6.2) * (0.02 + air * 0.06);
+          positions[idx] = centerX + Math.cos(theta) * radius + twirlLift;
+          positions[idx + 1] = centerY + Math.sin(theta) * radius - twirlLift * 0.7;
+          positions[idx + 2] = z;
+
           const hueShift =
             group === 0
               ? bass * 0.03
@@ -713,23 +1100,141 @@
                 : group === 2
                   ? treble * 0.06
                   : air * 0.05;
-          const hue = (groupHue[group] + recursiveMix * 0.02 + t * 0.003 + hueShift) % 1;
-          const saturation = Math.min(0.95, groupSaturation[group] + bandDrive * 0.24 + treble * 0.06);
-          const lightness = Math.min(0.9, groupLightness[group] + bandDrive * 0.21 + state.energy * 0.06);
+          const kaleidoHueShift = kaleidoAmount * 0.08 * Math.sin(t * 0.85 + z * 0.014 + kaleidoPhase[i]);
+          const hue = (groupHue[group] + recursiveMix * 0.018 + t * 0.002 + hueShift + kaleidoHueShift) % 1;
+          const saturation = Math.min(
+            0.97,
+            groupSaturation[group] + bandDrive * 0.2 + treble * 0.04 + coreReaction * 0.06 + kaleidoAmount * 0.12
+          );
+          const depthLight = 0.2 + depthNorm * 0.82;
+          const lightness = Math.min(
+            0.92,
+            (groupLightness[group] +
+              bandDrive * 0.17 +
+              state.energy * 0.04 +
+              state.pulse * 0.05 +
+              coreReaction * 0.08 +
+              kaleidoAmount * 0.06) *
+              depthLight
+          );
           tempColor.setHSL(hue, saturation, lightness);
           colors[idx] = tempColor.r;
           colors[idx + 1] = tempColor.g;
           colors[idx + 2] = tempColor.b;
         }
 
+        for (let j = 0; j < accentCount; j += 1) {
+          const src = accentIndices[j] * 3;
+          const dst = j * 3;
+          const drift = 0.02 + morphTrigger * 0.09;
+          accentPositions[dst] = positions[src] + Math.sin(t * 1.6 + j * 0.31) * drift;
+          accentPositions[dst + 1] = positions[src + 1] + Math.cos(t * 1.45 + j * 0.27) * drift;
+          accentPositions[dst + 2] = positions[src + 2];
+
+          accentColors[dst] = Math.min(1, colors[src] * (1.05 + morphTrigger * 0.23));
+          accentColors[dst + 1] = Math.min(1, colors[src + 1] * (1.05 + morphTrigger * 0.21));
+          accentColors[dst + 2] = Math.min(1, colors[src + 2] * (1.08 + morphTrigger * 0.3));
+        }
+
+        for (let j = 0; j < laserCount; j += 1) {
+          const srcIdx = laserIndices[j] * 3;
+          const x = positions[srcIdx];
+          const y = positions[srcIdx + 1];
+          const z = positions[srcIdx + 2];
+
+          const prevIdx = j * 3;
+          let px = laserPrevPositions[prevIdx];
+          let py = laserPrevPositions[prevIdx + 1];
+          let pz = laserPrevPositions[prevIdx + 2];
+
+          if (!laserReady[j] || Math.abs(z - pz) > 26) {
+            px = x;
+            py = y;
+            pz = z;
+            laserReady[j] = 1;
+          }
+
+          const dx = x - px;
+          const dy = y - py;
+          const dz = z - pz;
+          const stepLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          laserVel[j] += (stepLen / Math.max(0.0001, dt) - laserVel[j]) * 0.24;
+
+          let ux = 0;
+          let uy = 0;
+          let uz = -1;
+          if (stepLen > 0.0001) {
+            ux = dx / stepLen;
+            uy = dy / stepLen;
+            uz = dz / stepLen;
+          }
+
+          const coreDistance = Math.sqrt(x * x + y * y);
+          const centerSuppress = THREE.MathUtils.clamp((coreDistance - 0.38) / 1.6, 0.2, 1);
+          const linePresence = THREE.MathUtils.clamp(
+            laserPresence * centerSuppress * (0.68 + 0.32 * Math.sin(t * 0.44 + j * 0.15)),
+            0.08,
+            1
+          );
+          const trailLen = THREE.MathUtils.clamp(
+            (0.05 + laserVel[j] * 0.006 + morphTrigger * 0.14 + state.pulse * 0.1 - calm * 0.06) *
+              (0.36 + linePresence * 1.06),
+            0.04,
+            1.45
+          );
+          const tx = x - ux * trailLen;
+          const ty = y - uy * trailLen;
+          const tz = z - uz * trailLen;
+
+          const dst = j * 6;
+          laserPositions[dst] = tx;
+          laserPositions[dst + 1] = ty;
+          laserPositions[dst + 2] = tz;
+          laserPositions[dst + 3] = x;
+          laserPositions[dst + 4] = y;
+          laserPositions[dst + 5] = z;
+
+          const hue = (0.56 + t * 0.1 + j * 0.0014 + z * 0.0022 + treble * 0.12 + state.pulse * 0.06) % 1;
+          const sat = THREE.MathUtils.clamp(0.66 + morphTrigger * 0.14 + treble * 0.06, 0.58, 0.9);
+          const headLight = THREE.MathUtils.clamp(
+            (0.34 + morphTrigger * 0.12 + state.pulse * 0.08 + laserVel[j] * 0.0025) * (0.54 + linePresence * 0.78),
+            0.16,
+            0.76
+          );
+          const tailLight = THREE.MathUtils.clamp((0.08 + morphTrigger * 0.07) * (0.46 + linePresence * 0.5), 0.04, 0.32);
+
+          laserColor.setHSL(hue + 0.03, sat * 0.86, tailLight);
+          laserColors[dst] = laserColor.r;
+          laserColors[dst + 1] = laserColor.g;
+          laserColors[dst + 2] = laserColor.b;
+          laserColor.setHSL(hue, sat, headLight);
+          laserColors[dst + 3] = laserColor.r;
+          laserColors[dst + 4] = laserColor.g;
+          laserColors[dst + 5] = laserColor.b;
+
+          laserPrevPositions[prevIdx] = x;
+          laserPrevPositions[prevIdx + 1] = y;
+          laserPrevPositions[prevIdx + 2] = z;
+        }
+
         geometry.attributes.position.needsUpdate = true;
         geometry.attributes.color.needsUpdate = true;
+        accentGeometry.attributes.position.needsUpdate = true;
+        accentGeometry.attributes.color.needsUpdate = true;
+        laserPositionAttr.needsUpdate = true;
+        laserColorAttr.needsUpdate = true;
 
-        const cameraDrift = t * 0.11;
-        camera.position.x = Math.sin(cameraDrift) * (2.4 + bass * 0.9);
-        camera.position.z = 15 + Math.cos(cameraDrift) * (1.5 + mid * 0.8);
-        camera.position.y = Math.sin(t * 0.21) * (0.8 + air * 0.5);
-        camera.lookAt(0, Math.sin(t * 0.33) * 0.35, 0);
+        const cameraDrift = t * 0.16 * motionScale;
+        camera.position.x =
+          Math.sin(cameraDrift) * (0.34 + air * 0.24) + Math.sin(t * 0.33 * motionScale) * (0.48 + air * 0.28);
+        camera.position.y =
+          Math.cos(cameraDrift * 0.9) * (0.24 + mid * 0.16) + Math.cos(t * 0.29 * motionScale) * (0.42 + mid * 0.2);
+        camera.position.z = 4.25 + Math.sin(t * 0.58 * motionScale) * (0.14 + bass * 0.1);
+        camera.lookAt(
+          Math.sin(t * 0.31 * motionScale - 0.5) * (0.9 + air * 0.45),
+          Math.cos(t * 0.27 * motionScale - 0.3) * (0.75 + mid * 0.33),
+          -34 - state.flow * 6 - state.pulse * 3
+        );
 
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
@@ -776,6 +1281,18 @@
         currentObjectUrl = URL.createObjectURL(file);
         audioEl.src = currentObjectUrl;
         audioEl.load();
+        onsetHistory.length = 0;
+        lastOnsetTime = 0;
+        lastBassLevel = 0;
+        dynamicFluxThreshold = 0.05;
+        state.flow = 0.16;
+        state.targetFlow = 0.16;
+        state.pulse = 0;
+        state.calm = 0.62;
+        state.targetCalm = 0.62;
+        state.motion = 0.18;
+        state.targetMotion = 0.18;
+        state.estimatedBpm = 110;
 
         setupAudioGraph();
         if (audioContext.state === "suspended") {
@@ -816,6 +1333,20 @@
         }
         audioEl.currentTime = 0;
         setStatus("Restarted audio track.");
+      });
+
+      audioEl.addEventListener("pause", () => {
+        state.targetFlow = 0.02;
+        state.targetMotion = 0.03;
+        state.targetCalm = 0.95;
+        state.pulse *= 0.5;
+      });
+
+      audioEl.addEventListener("ended", () => {
+        state.targetFlow = 0.02;
+        state.targetMotion = 0.03;
+        state.targetCalm = 0.96;
+        state.pulse = 0;
       });
 
       window.addEventListener("resize", () => {
