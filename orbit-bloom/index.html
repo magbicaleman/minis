@@ -13,15 +13,48 @@
     />
     <style>
       :root {
-        --bg-1: #041224;
-        --bg-2: #071929;
-        --bg-3: #231a38;
-        --card: rgba(8, 13, 24, 0.72);
-        --line: rgba(154, 210, 255, 0.26);
+        --ui-font: "Space Grotesk", sans-serif;
+        --ui-display: "Syne", sans-serif;
         --text: #e8f0ff;
         --muted: #9ab5cf;
         --accent: #7ce8ff;
         --accent-2: #ffd773;
+        --hud-bg: rgba(8, 13, 24, 0.72);
+        --hud-border: 1px solid rgba(154, 210, 255, 0.26);
+        --hud-radius: 16px;
+        --hud-blur: 14px;
+        --hud-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+        --hud-sheen:
+          radial-gradient(140% 120% at 0% 0%, rgba(126, 209, 255, 0.1), rgba(126, 209, 255, 0) 64%),
+          linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+        --title-glow: 0 0 0 transparent;
+        --label-color: #cfe4ff;
+        --control-bg: rgba(16, 26, 46, 0.82);
+        --control-border: rgba(179, 224, 255, 0.35);
+        --control-radius: 10px;
+        --button-bg: linear-gradient(120deg, rgba(123, 233, 255, 0.3), rgba(255, 202, 113, 0.32));
+        --button-border: rgba(179, 224, 255, 0.35);
+        --button-hover-border: rgba(227, 248, 255, 0.8);
+        --range-track: linear-gradient(90deg, rgba(102, 163, 218, 0.35), rgba(255, 255, 255, 0.4));
+        --range-thumb: #2d9fff;
+        --chip-bg: rgba(13, 21, 38, 0.5);
+        --chip-border: rgba(188, 221, 255, 0.28);
+        --chip-text: #d8ecff;
+        --capture-off-color: #bdd6ef;
+        --capture-off-border: rgba(150, 188, 224, 0.3);
+        --capture-off-bg: rgba(9, 17, 33, 0.62);
+        --capture-off-dot: #5d738f;
+        --capture-armed-color: #8beaff;
+        --capture-armed-border: rgba(106, 225, 255, 0.58);
+        --capture-armed-dot: #64e8ff;
+        --capture-live-color: #b8ffcf;
+        --capture-live-border: rgba(126, 255, 170, 0.64);
+        --capture-live-dot: #7effaf;
+        --gutter-gradient: linear-gradient(90deg, rgba(124, 196, 255, 0.05), rgba(124, 196, 255, 0));
+        --page-ambient:
+          radial-gradient(160% 120% at 100% 0%, rgba(69, 88, 149, 0.25), rgba(0, 0, 0, 0) 52%),
+          radial-gradient(120% 120% at 0% 100%, rgba(30, 77, 141, 0.2), rgba(0, 0, 0, 0) 50%);
+        --focus-ring: 0 0 0 3px rgba(124, 232, 255, 0.22);
       }
 
       * {
@@ -35,8 +68,8 @@
         height: 100%;
         overflow: hidden;
         color: var(--text);
-        font-family: "Space Grotesk", sans-serif;
-        background: #02040a;
+        font-family: var(--ui-font);
+        background: var(--page-ambient), #02040a;
       }
 
       .hud {
@@ -44,18 +77,32 @@
         inset: 1rem auto auto 1rem;
         width: min(24rem, calc(100vw - 2rem));
         padding: 1rem;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: var(--card);
-        backdrop-filter: blur(14px);
-        box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+        border: var(--hud-border);
+        border-radius: var(--hud-radius);
+        background: var(--hud-bg);
+        backdrop-filter: blur(var(--hud-blur));
+        box-shadow: var(--hud-shadow);
         z-index: 10;
+        overflow: hidden;
         transform-origin: left top;
         transition:
           transform 760ms cubic-bezier(0.22, 1, 0.36, 1),
           opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
           filter 520ms cubic-bezier(0.22, 1, 0.36, 1),
           box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .hud::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--hud-sheen);
+        pointer-events: none;
+      }
+
+      .hud > * {
+        position: relative;
+        z-index: 1;
       }
 
       body.hud-hidden .hud {
@@ -75,8 +122,9 @@
 
       .title {
         margin: 0;
-        font: 800 1.55rem/1.05 "Syne", sans-serif;
+        font: 800 1.55rem/1.05 var(--ui-display);
         letter-spacing: 0.02em;
+        text-shadow: var(--title-glow);
       }
 
       .title-row {
@@ -100,38 +148,38 @@
         line-height: 1;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        border: 1px solid rgba(150, 188, 224, 0.3);
+        border: 1px solid var(--capture-off-border);
         border-radius: 999px;
         padding: 0.26rem 0.5rem;
-        color: #bdd6ef;
-        background: rgba(9, 17, 33, 0.62);
+        color: var(--capture-off-color);
+        background: var(--capture-off-bg);
       }
 
       .capture-dot {
         width: 0.44rem;
         height: 0.44rem;
         border-radius: 50%;
-        background: #5d738f;
+        background: var(--capture-off-dot);
         box-shadow: 0 0 0 rgba(102, 135, 170, 0);
       }
 
       .capture-badge.armed {
-        color: #8beaff;
-        border-color: rgba(106, 225, 255, 0.58);
+        color: var(--capture-armed-color);
+        border-color: var(--capture-armed-border);
       }
 
       .capture-badge.armed .capture-dot {
-        background: #64e8ff;
+        background: var(--capture-armed-dot);
         box-shadow: 0 0 10px rgba(100, 232, 255, 0.45);
       }
 
       .capture-badge.live {
-        color: #b8ffcf;
-        border-color: rgba(126, 255, 170, 0.64);
+        color: var(--capture-live-color);
+        border-color: var(--capture-live-border);
       }
 
       .capture-badge.live .capture-dot {
-        background: #7effaf;
+        background: var(--capture-live-dot);
         box-shadow: 0 0 12px rgba(126, 255, 170, 0.7);
       }
 
@@ -142,7 +190,7 @@
         bottom: 0;
         width: 64px;
         z-index: 12;
-        background: linear-gradient(90deg, rgba(124, 196, 255, 0.05), rgba(124, 196, 255, 0));
+        background: var(--gutter-gradient);
         opacity: 0;
         pointer-events: none;
         transition: opacity 220ms ease;
@@ -169,7 +217,7 @@
         margin-bottom: 0.35rem;
         font-size: 0.78rem;
         letter-spacing: 0.02em;
-        color: #cfe4ff;
+        color: var(--label-color);
       }
 
       select,
@@ -177,26 +225,77 @@
       button {
         width: 100%;
         padding: 0.55rem 0.65rem;
-        border-radius: 10px;
-        border: 1px solid rgba(179, 224, 255, 0.35);
-        background: rgba(16, 26, 46, 0.82);
+        border-radius: var(--control-radius);
+        border: 1px solid var(--control-border);
+        background: var(--control-bg);
         color: var(--text);
         font-family: inherit;
         font-size: 0.9rem;
       }
 
+      select {
+        -webkit-appearance: none;
+        appearance: none;
+        padding-right: 2.2rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.25 6 6.25 11 1.25' fill='none' stroke='%23eaf2ff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-position: calc(100% - 0.9rem) 50%;
+        background-size: 0.72rem 0.48rem;
+        background-repeat: no-repeat;
+      }
+
       input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
         padding: 0;
+        background: transparent;
+      }
+
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 0.42rem;
+        border-radius: 999px;
+        background: var(--range-track);
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        margin-top: -0.29rem;
+        border: 1px solid rgba(255, 255, 255, 0.48);
+        background: var(--range-thumb);
+      }
+
+      input[type="range"]::-moz-range-track {
+        height: 0.42rem;
+        border-radius: 999px;
+        background: var(--range-track);
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.48);
+        background: var(--range-thumb);
       }
 
       button {
         cursor: pointer;
-        background:
-          linear-gradient(120deg, rgba(123, 233, 255, 0.3), rgba(255, 202, 113, 0.32));
+        border-color: var(--button-border);
+        background: var(--button-bg);
       }
 
       button:hover {
-        border-color: rgba(227, 248, 255, 0.8);
+        border-color: var(--button-hover-border);
+      }
+
+      select:focus-visible,
+      input:focus-visible,
+      button:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
       }
 
       .row {
@@ -221,11 +320,11 @@
 
       .band-chip {
         font-size: 0.73rem;
-        border: 1px solid rgba(188, 221, 255, 0.28);
+        border: 1px solid var(--chip-border);
         border-radius: 999px;
         padding: 0.18rem 0.52rem;
-        color: #d8ecff;
-        background: rgba(13, 21, 38, 0.5);
+        color: var(--chip-text);
+        background: var(--chip-bg);
       }
 
       .bass-chip {
@@ -258,6 +357,48 @@
         display: none;
       }
 
+      body.theme-obsidian {
+        --ui-font: "Space Grotesk", sans-serif;
+        --ui-display: "Space Grotesk", sans-serif;
+        --text: #f5f8ff;
+        --muted: #abb6cf;
+        --accent: #ffffff;
+        --accent-2: #7ea5ff;
+        --hud-bg: rgba(8, 11, 18, 0.82);
+        --hud-border: 1px solid rgba(227, 234, 252, 0.2);
+        --hud-radius: 6px;
+        --hud-shadow: 0 22px 56px rgba(0, 0, 0, 0.5);
+        --hud-sheen: linear-gradient(175deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+        --title-glow: 0 0 18px rgba(255, 255, 255, 0.12);
+        --label-color: #d7e1ff;
+        --control-bg: rgba(10, 13, 22, 0.86);
+        --control-border: rgba(221, 230, 255, 0.24);
+        --control-radius: 6px;
+        --button-bg: linear-gradient(125deg, rgba(255, 255, 255, 0.22), rgba(114, 138, 176, 0.26));
+        --button-border: rgba(234, 242, 255, 0.34);
+        --button-hover-border: rgba(255, 255, 255, 0.85);
+        --range-track: linear-gradient(90deg, rgba(176, 191, 219, 0.32), rgba(250, 252, 255, 0.4));
+        --range-thumb: #ffffff;
+        --chip-bg: rgba(17, 22, 35, 0.78);
+        --chip-border: rgba(203, 216, 255, 0.26);
+        --chip-text: #eef3ff;
+        --capture-off-color: #d6e1ff;
+        --capture-off-border: rgba(211, 226, 255, 0.26);
+        --capture-off-bg: rgba(9, 13, 22, 0.84);
+        --capture-off-dot: #8ba0cc;
+        --capture-armed-color: #e5f0ff;
+        --capture-armed-border: rgba(226, 239, 255, 0.54);
+        --capture-armed-dot: #ffffff;
+        --capture-live-color: #d0ffe7;
+        --capture-live-border: rgba(170, 255, 212, 0.64);
+        --capture-live-dot: #9dffcc;
+        --gutter-gradient: linear-gradient(90deg, rgba(222, 234, 255, 0.11), rgba(222, 234, 255, 0));
+        --page-ambient:
+          radial-gradient(90% 100% at 100% 0%, rgba(85, 109, 160, 0.2), rgba(0, 0, 0, 0) 56%),
+          radial-gradient(110% 120% at 0% 100%, rgba(51, 63, 94, 0.2), rgba(0, 0, 0, 0) 58%);
+        --focus-ring: 0 0 0 3px rgba(219, 230, 255, 0.22);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .hud {
           transition: none;
@@ -265,7 +406,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="theme-obsidian">
     <aside class="hud">
       <div class="title-row">
         <h1 class="title">Orbit Bloom</h1>

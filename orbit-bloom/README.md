@@ -3,18 +3,21 @@
 A playful Three.js particle playground with two modes:
 
 - Local audio-reactive particles (true FFT analysis via Web Audio API)
-- YouTube sync particles (time/BPM-driven, with embedded YouTube player)
+- Live tab-audio visualizer (capture any browser tab audio and react in real time)
 
 ## Run
 
-From `/Users/magbicaleman/tiiny-stuff`:
+From `/Users/magbicaleman/tiiny-stuff/orbit-bloom`:
 
 ```bash
-node -e "require('http').createServer((req,res)=>{require('fs').createReadStream('.'+(req.url==='/'?'/orbit-bloom/index.html':req.url)).pipe(res)}).listen(8080)"
+npx serve .
 ```
 
 Then open:
 
-- <http://localhost:8080/orbit-bloom/index.html>
+- <http://localhost:3000>
 
-If you already have a static server, use that instead.
+## Notes
+
+- In `Tab Audio Visualizer` mode, click `Capture Tab Audio`, pick a browser tab, and enable `Share audio`.
+- Browser security limits direct access to iframe/service audio, so tab capture is the reliable live-reactive path.
