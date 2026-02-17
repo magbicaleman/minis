@@ -418,14 +418,15 @@
         </div>
       </div>
       <p class="subtitle">
-        3D particles in two modes: feature-reactive local playback and live tab-audio capture.
+        3D particles in three modes: local audio-reactive playback, live tab-audio capture, and Bass &amp; Brackets live.
       </p>
 
       <div class="group">
         <label for="mode">Mode</label>
         <select id="mode">
           <option value="local">Local Audio Reactive</option>
-          <option value="tab" selected>Tab Audio Visualizer</option>
+          <option value="tab">Tab Audio Visualizer</option>
+          <option value="dj" selected>Bass &amp; Brackets Live</option>
         </select>
       </div>
 
@@ -462,8 +463,21 @@
         <p class="mini">Select any browser tab and enable Share audio to drive live reactivity.</p>
       </section>
 
-      <p id="status">Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab.</p>
-      <p class="mini">Tab audio uses secure capture permission. No direct speaker-output access is needed.</p>
+      <section id="djPanel" class="hide">
+        <div class="group">
+          <div class="row">
+            <button id="playBassSet">Play Bass &amp; Brackets</button>
+            <button id="nextBassTrack">Next Track</button>
+          </div>
+          <div class="row">
+            <button id="stopBassSet">Stop Music</button>
+          </div>
+          <p class="mini">Dedicated Bass &amp; Brackets visualizer mode. Reacts directly to the locked set.</p>
+        </div>
+      </section>
+
+      <p id="status">Bass &amp; Brackets mode is ready. Press Play to start reactive visuals.</p>
+      <p class="mini">Tab capture uses secure capture permission. No direct speaker-output access is needed.</p>
     </aside>
     <div id="hudGutterHit" class="hud-gutter-hit"></div>
 
@@ -472,7 +486,7 @@
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
       const state = {
-        mode: "tab",
+        mode: "dj",
         sensitivity: 1.4,
         estimatedBpm: 110,
         energy: 0.03,
@@ -518,8 +532,12 @@
       const audioEl = document.getElementById("audio");
       const localPanelEl = document.getElementById("localPanel");
       const tabPanelEl = document.getElementById("tabPanel");
+      const djPanelEl = document.getElementById("djPanel");
       const startCaptureBtn = document.getElementById("startCapture");
       const stopCaptureBtn = document.getElementById("stopCapture");
+      const playBassSetBtn = document.getElementById("playBassSet");
+      const nextBassTrackBtn = document.getElementById("nextBassTrack");
+      const stopBassSetBtn = document.getElementById("stopBassSet");
       const captureStatusEl = document.getElementById("captureStatus");
       const captureBadgeEl = document.getElementById("captureBadge");
       const captureBadgeTextEl = document.getElementById("captureBadgeText");
@@ -536,10 +554,15 @@
       let captureMediaSource;
       let captureStream;
       let captureStartedAt = 0;
+      let bassSetStartedAt = 0;
+      let bassSetIsPlaying = false;
       let localToAnalyserConnected = false;
       let captureToAnalyserConnected = false;
       let analyserToDestinationConnected = false;
       let activeAnalysisSource = "none";
+      let strudelAnalyserNode;
+      let strudelFrequencyData;
+      let prevStrudelSpectrumData;
       let currentObjectUrl;
       let lastBandReadoutUpdate = 0;
       let lastFlowReadoutUpdate = 0;
@@ -563,6 +586,57 @@
         helix: 0,
         surge: 0,
       };
+      const STRUDEL_WEB_SCRIPT_URL = "https://unpkg.com/@strudel/web@1.0.3";
+      const BASS_AND_BRACKETS_SET = [
+        {
+          title: "Kick Tunnel",
+          bpm: 110,
+          profile: { drive: 0.88, shimmer: 0.44, punch: 0.68 },
+          build: ({ note, stack }) =>
+            stack(
+              note("c2 ~ c2 ~ c2 ~ c2 ~").s("sawtooth").gain(0.46),
+              note("[c4 e4 g4 b4]*2").s("triangle").slow(2).gain(0.2),
+              note("c1").s("square").slow(4).gain(0.24)
+            ),
+        },
+        {
+          title: "Casio Drift",
+          bpm: 98,
+          profile: { drive: 0.58, shimmer: 0.76, punch: 0.42 },
+          build: ({ note, stack }) =>
+            stack(
+              note("c3 [eb3 g3] bb2 [g2 eb3]").s("square").slow(2).gain(0.34),
+              note("[g4 bb4 d5 f5]*2").s("triangle").slow(4).gain(0.18),
+              note("c2").s("sawtooth").slow(6).gain(0.18)
+            ),
+        },
+        {
+          title: "Warehouse Spiral",
+          bpm: 126,
+          profile: { drive: 0.9, shimmer: 0.38, punch: 0.85 },
+          build: ({ note, stack }) =>
+            stack(
+              note("c2 c2 g2 c2 c2 bb1 g1 c2").s("sawtooth").fast(2).gain(0.4),
+              note("[c4 g4 eb4 bb3]*2").s("triangle").fast(2).gain(0.2),
+              note("c5 ~ g4 ~").s("sine").fast(4).gain(0.14)
+            ),
+        },
+        {
+          title: "Afterglow",
+          bpm: 92,
+          profile: { drive: 0.54, shimmer: 0.7, punch: 0.36 },
+          build: ({ note, stack }) =>
+            stack(
+              note("c3 eb3 g3 bb3").s("triangle").slow(3).gain(0.3),
+              note("c5 bb4 g4 eb4").s("sine").slow(2).gain(0.16),
+              note("c2").s("sawtooth").slow(6).gain(0.22)
+            ),
+        },
+      ];
+      let bassTrackIndex = 0;
+      let strudelEngineReady = false;
+      let strudelEngineLoading = false;
+      let strudelEnginePromise = null;
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -911,6 +985,165 @@
         }
       }
 
+      function loadScriptOnce(src) {
+        return new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) {
+            if (existing.dataset.loaded === "true") {
+              resolve();
+              return;
+            }
+            existing.addEventListener("load", () => resolve(), { once: true });
+            existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+            return;
+          }
+
+          const script = document.createElement("script");
+          script.src = src;
+          script.addEventListener(
+            "load",
+            () => {
+              script.dataset.loaded = "true";
+              resolve();
+            },
+            { once: true }
+          );
+          script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+          document.head.appendChild(script);
+        });
+      }
+
+      function setBassControlsDisabled(disabled) {
+        if (playBassSetBtn) {
+          playBassSetBtn.disabled = disabled;
+        }
+        if (nextBassTrackBtn) {
+          nextBassTrackBtn.disabled = disabled;
+        }
+        if (stopBassSetBtn) {
+          stopBassSetBtn.disabled = disabled;
+        }
+      }
+
+      function ensureStrudelAnalyser() {
+        if (typeof window.getAnalyser !== "function") {
+          return null;
+        }
+        try {
+          const analyserNode = window.getAnalyser();
+          if (!analyserNode) {
+            return null;
+          }
+          strudelAnalyserNode = analyserNode;
+          if (!strudelFrequencyData || strudelFrequencyData.length !== analyserNode.frequencyBinCount) {
+            strudelFrequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+            prevStrudelSpectrumData = new Float32Array(analyserNode.frequencyBinCount);
+          }
+          return strudelAnalyserNode;
+        } catch {
+          return null;
+        }
+      }
+
+      function waitForStrudelRuntime(timeoutMs = 8000) {
+        const startedAt = performance.now();
+        return new Promise((resolve, reject) => {
+          const tick = () => {
+            const runtimeReady =
+              typeof window.hush === "function" && typeof window.note === "function" && typeof window.stack === "function";
+            if (runtimeReady) {
+              resolve();
+              return;
+            }
+            if (performance.now() - startedAt >= timeoutMs) {
+              reject(new Error("Strudel runtime did not become ready in time"));
+              return;
+            }
+            requestAnimationFrame(tick);
+          };
+          tick();
+        });
+      }
+
+      async function ensureStrudelEngine() {
+        if (strudelEngineReady) {
+          return true;
+        }
+        if (strudelEnginePromise) {
+          return strudelEnginePromise;
+        }
+
+        strudelEnginePromise = (async () => {
+          strudelEngineLoading = true;
+          setBassControlsDisabled(true);
+          setStatus("Loading Bass & Brackets audio engine...");
+
+          try {
+            await loadScriptOnce(STRUDEL_WEB_SCRIPT_URL);
+            if (typeof window.initStrudel !== "function") {
+              throw new Error("initStrudel is unavailable");
+            }
+            window.initStrudel();
+            await waitForStrudelRuntime();
+            ensureStrudelAnalyser();
+            strudelEngineReady = true;
+            setStatus("Bass & Brackets engine ready.");
+            return true;
+          } catch (error) {
+            console.error(error);
+            setStatus("Could not load Bass & Brackets audio engine. Check network access and reload.");
+            return false;
+          } finally {
+            strudelEngineLoading = false;
+            setBassControlsDisabled(false);
+          }
+        })();
+
+        const ready = await strudelEnginePromise;
+        if (!ready) {
+          strudelEnginePromise = null;
+        }
+        return ready;
+      }
+
+      async function playBassTrackByIndex(index, announce = true) {
+        const ready = await ensureStrudelEngine();
+        if (!ready) {
+          return false;
+        }
+
+        const trackCount = BASS_AND_BRACKETS_SET.length;
+        bassTrackIndex = ((index % trackCount) + trackCount) % trackCount;
+        const track = BASS_AND_BRACKETS_SET[bassTrackIndex];
+        const hushFn = window.hush;
+        const noteFn = window.note;
+        const stackFn = window.stack;
+
+        if (typeof noteFn !== "function" || typeof stackFn !== "function") {
+          setStatus("Strudel sound engine is unavailable.");
+          return false;
+        }
+
+        if (typeof hushFn === "function") {
+          hushFn();
+        }
+        ensureStrudelAnalyser();
+        const pattern = typeof track.build === "function" ? track.build({ note: noteFn, stack: stackFn }) : null;
+        if (typeof pattern.play !== "function") {
+          setStatus("Could not start track playback.");
+          return false;
+        }
+        resetReactiveHistory();
+        pattern.play();
+        bassSetIsPlaying = true;
+        bassSetStartedAt = performance.now() * 0.001;
+
+        if (announce) {
+          setStatus(`Now playing Bass & Brackets: ${track.title} (${bassTrackIndex + 1}/${trackCount}).`);
+        }
+        return true;
+      }
+
       function setHudDockState(nextState) {
         if (hudDockState === nextState) {
           return;
@@ -1183,13 +1416,21 @@
         if (modeEl && modeEl.value !== mode) {
           modeEl.value = mode;
         }
+        const previousMode = state.mode;
         state.mode = mode;
+        const isLocal = mode === "local";
         const isTab = mode === "tab";
+        const isDj = mode === "dj";
         if (!isTab && captureStream) {
           stopTabCapture("", true);
         }
-        localPanelEl.classList.toggle("hide", isTab);
+        if (previousMode === "dj" && !isDj && bassSetIsPlaying && typeof window.hush === "function") {
+          window.hush();
+          bassSetIsPlaying = false;
+        }
+        localPanelEl.classList.toggle("hide", !isLocal);
         tabPanelEl.classList.toggle("hide", !isTab);
+        djPanelEl.classList.toggle("hide", !isDj);
         if (isTab) {
           setStatus(
             captureStream
@@ -1197,6 +1438,13 @@
               : "Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab."
           );
           updateCaptureIndicators(captureStream ? "armed" : "off");
+        } else if (isDj) {
+          setStatus(
+            bassSetIsPlaying
+              ? `Now playing Bass & Brackets: ${BASS_AND_BRACKETS_SET[bassTrackIndex].title} (${bassTrackIndex + 1}/${BASS_AND_BRACKETS_SET.length}).`
+              : "Bass & Brackets mode is ready. Press Play to start reactive visuals."
+          );
+          updateCaptureIndicators("off");
         } else {
           setStatus(audioEl.src ? "Local audio mode active." : "Load an audio file to start local reactive mode.");
           updateCaptureIndicators("off");
@@ -1204,27 +1452,21 @@
         syncHudDockFromPointer();
       }
 
-      function extractAudioFeatures() {
-        if (!analyser || !frequencyData || !timeDomainData) {
-          return {
-            loudness: 0,
-            flux: 0,
-            centroid: 0,
-            rolloff: 0,
-            spread: 0,
-            flatness: 0,
-          };
-        }
+      function emptyFeatureVector() {
+        return {
+          loudness: 0,
+          flux: 0,
+          centroid: 0,
+          rolloff: 0,
+          spread: 0,
+          flatness: 0,
+        };
+      }
 
-        analyser.getByteFrequencyData(frequencyData);
-        analyser.getByteTimeDomainData(timeDomainData);
-
-        let rmsSum = 0;
-        for (let i = 0; i < timeDomainData.length; i += 1) {
-          const sample = (timeDomainData[i] - 128) / 128;
-          rmsSum += sample * sample;
+      function featuresFromSpectrum(spectrumData, previousSpectrumData, loudness) {
+        if (!spectrumData || !spectrumData.length) {
+          return emptyFeatureVector();
         }
-        const loudness = Math.sqrt(rmsSum / Math.max(1, timeDomainData.length));
 
         let sum = 0;
         let weighted = 0;
@@ -1233,25 +1475,25 @@
         let flatnessMeanAcc = 0;
         const eps = 1e-5;
 
-        for (let i = 0; i < frequencyData.length; i += 1) {
-          const v = frequencyData[i] / 255;
+        for (let i = 0; i < spectrumData.length; i += 1) {
+          const v = spectrumData[i] / 255;
           const vSafe = v + eps;
           sum += v;
           weighted += i * v;
           logAcc += Math.log(vSafe);
           flatnessMeanAcc += vSafe;
-          if (prevSpectrumData) {
-            const diff = v - prevSpectrumData[i];
+          if (previousSpectrumData) {
+            const diff = v - previousSpectrumData[i];
             if (diff > 0) {
               fluxAcc += diff;
             }
-            prevSpectrumData[i] = v;
+            previousSpectrumData[i] = v;
           }
         }
 
         if (sum < 1e-6) {
           return {
-            loudness: loudness,
+            loudness,
             flux: 0,
             centroid: 0,
             rolloff: 0,
@@ -1265,8 +1507,8 @@
         let cumulative = 0;
         let rolloffBin = 0;
         const rolloffTarget = sum * 0.85;
-        for (let i = 0; i < frequencyData.length; i += 1) {
-          const v = frequencyData[i] / 255;
+        for (let i = 0; i < spectrumData.length; i += 1) {
+          const v = spectrumData[i] / 255;
           const d = i - centroid;
           spreadAcc += d * d * v;
           cumulative += v;
@@ -1275,14 +1517,14 @@
           }
         }
 
-        const n = Math.max(1, frequencyData.length - 1);
+        const n = Math.max(1, spectrumData.length - 1);
         const centroidNorm = centroid / n;
         const spreadNorm = Math.min(1, Math.sqrt(spreadAcc / sum) / (n * 0.5));
         const rolloffNorm = rolloffBin / n;
         const flatness =
-          Math.exp(logAcc / Math.max(1, frequencyData.length)) /
-          (flatnessMeanAcc / Math.max(1, frequencyData.length));
-        const fluxNorm = fluxAcc / Math.max(1, frequencyData.length);
+          Math.exp(logAcc / Math.max(1, spectrumData.length)) /
+          (flatnessMeanAcc / Math.max(1, spectrumData.length));
+        const fluxNorm = fluxAcc / Math.max(1, spectrumData.length);
 
         return {
           loudness,
@@ -1291,6 +1533,71 @@
           rolloff: rolloffNorm,
           spread: spreadNorm,
           flatness: THREE.MathUtils.clamp(flatness, 0, 1),
+        };
+      }
+
+      function extractAudioFeatures() {
+        if (!analyser || !frequencyData || !timeDomainData) {
+          return emptyFeatureVector();
+        }
+
+        analyser.getByteFrequencyData(frequencyData);
+        analyser.getByteTimeDomainData(timeDomainData);
+
+        let rmsSum = 0;
+        for (let i = 0; i < timeDomainData.length; i += 1) {
+          const sample = (timeDomainData[i] - 128) / 128;
+          rmsSum += sample * sample;
+        }
+        const loudness = Math.sqrt(rmsSum / Math.max(1, timeDomainData.length));
+        return featuresFromSpectrum(frequencyData, prevSpectrumData, loudness);
+      }
+
+      function extractStrudelFeatures() {
+        const analyserNode = ensureStrudelAnalyser();
+        if (!analyserNode || !strudelFrequencyData) {
+          return emptyFeatureVector();
+        }
+
+        analyserNode.getByteFrequencyData(strudelFrequencyData);
+
+        let spectrumPower = 0;
+        for (let i = 0; i < strudelFrequencyData.length; i += 1) {
+          const v = strudelFrequencyData[i] / 255;
+          spectrumPower += v * v;
+        }
+        const loudness = Math.sqrt(spectrumPower / Math.max(1, strudelFrequencyData.length));
+        return featuresFromSpectrum(strudelFrequencyData, prevStrudelSpectrumData, loudness);
+      }
+
+      function extractDjFallbackFeatures(nowSeconds) {
+        const track = BASS_AND_BRACKETS_SET[bassTrackIndex] || BASS_AND_BRACKETS_SET[0];
+        const bpm = Math.max(72, track?.bpm || 110);
+        const beat = Math.max(0, nowSeconds - bassSetStartedAt) * (bpm / 60);
+        const beatPos = beat % 1;
+        const halfPos = (beat * 2) % 1;
+        const quarterPos = (beat * 4) % 1;
+        const kick = Math.pow(1 - beatPos, 4);
+        const snare = Math.pow(1 - halfPos, 3);
+        const hat = Math.pow(1 - quarterPos, 2);
+        const driveBias = track?.profile?.drive ?? 0.6;
+        const punchBias = track?.profile?.punch ?? 0.5;
+        const shimmerBias = track?.profile?.shimmer ?? 0.5;
+        const tonal = 0.5 + 0.5 * Math.sin(beat * 0.63 + driveBias * Math.PI);
+        const air = 0.5 + 0.5 * Math.sin(beat * 1.17 + shimmerBias * Math.PI * 0.5);
+        const loudness = THREE.MathUtils.clamp(0.11 + kick * 0.6 + snare * 0.24 + hat * 0.12, 0, 1);
+        const flux = THREE.MathUtils.clamp(0.08 + kick * 0.82 + snare * 0.32 + hat * 0.22, 0, 1.2);
+        const centroid = THREE.MathUtils.clamp(0.18 + air * 0.46 + (1 - driveBias) * 0.2, 0, 1);
+        const rolloff = THREE.MathUtils.clamp(0.24 + tonal * 0.34 + shimmerBias * 0.22, 0, 1);
+        const spread = THREE.MathUtils.clamp(0.22 + air * 0.3 + hat * 0.34, 0, 1);
+        const flatness = THREE.MathUtils.clamp(0.16 + (1 - tonal) * 0.34 + punchBias * 0.18, 0, 1);
+        return {
+          loudness,
+          flux,
+          centroid,
+          rolloff,
+          spread,
+          flatness,
         };
       }
 
@@ -1398,8 +1705,8 @@
           `Flow ${state.flow.toFixed(2)} · Calm ${state.calm.toFixed(2)} · Pulse ${state.pulse.toFixed(2)} · BPM ${Math.round(state.estimatedBpm)} · ${regimeLabel}`;
       }
 
-      function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds) {
-        const raw = extractAudioFeatures();
+      function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds, featureInput = extractAudioFeatures()) {
+        const raw = featureInput;
         const inputLevel = raw.loudness * state.sensitivity;
         const noiseGate = THREE.MathUtils.clamp((inputLevel - 0.018) / 0.22, 0, 1);
         const loudness =
@@ -1486,6 +1793,7 @@
       function updateEnergy(nowSeconds) {
         const localSourceReady = state.mode === "local" && analyser && activeAnalysisSource === "local";
         const captureSourceReady = state.mode === "tab" && analyser && activeAnalysisSource === "capture" && !!captureStream;
+        const djPlaybackActive = state.mode === "dj" && bassSetIsPlaying;
         const localPlaybackActive =
           localSourceReady && !!audioEl.src && !audioEl.paused && !audioEl.ended && audioEl.currentTime > 0.45;
         const capturePlaybackActive = captureSourceReady;
@@ -1495,6 +1803,12 @@
         } else if (capturePlaybackActive) {
           const captureAge = Math.max(0, nowSeconds - captureStartedAt);
           applyFeatureDrivenTargets(nowSeconds, captureAge);
+        } else if (djPlaybackActive) {
+          const bassAge = Math.max(0, nowSeconds - bassSetStartedAt);
+          const strudelFeatures = extractStrudelFeatures();
+          const strudelHasSignal = strudelFeatures.loudness > 0.006 || strudelFeatures.flux > 0.002;
+          const djFeatures = strudelHasSignal ? strudelFeatures : extractDjFallbackFeatures(nowSeconds);
+          applyFeatureDrivenTargets(nowSeconds, bassAge, djFeatures);
         } else if (state.mode === "local" && localSourceReady) {
           state.targetDrivers.drive = 0.01;
           state.targetDrivers.punch = 0.01;
@@ -1518,6 +1832,15 @@
           state.targetFlow = 0.02;
           state.targetCalm = 0.93;
           state.targetMotion = 0.04;
+          state.pulse *= 0.9;
+        } else if (state.mode === "dj") {
+          state.targetDrivers.drive = 0.02;
+          state.targetDrivers.punch = 0.02;
+          state.targetDrivers.shimmer = 0.02;
+          state.targetDrivers.texture = 0.02;
+          state.targetFlow = 0.03;
+          state.targetCalm = 0.9;
+          state.targetMotion = 0.05;
           state.pulse *= 0.9;
         } else {
           state.targetDrivers.drive = 0.03;
@@ -1947,6 +2270,36 @@
         stopTabCapture("Tab audio capture stopped.");
       });
 
+      if (playBassSetBtn) {
+        playBassSetBtn.addEventListener("click", async () => {
+          if (state.mode !== "dj") {
+            modeEl.value = "dj";
+            applyMode("dj");
+          }
+          await playBassTrackByIndex(bassTrackIndex, true);
+        });
+      }
+
+      if (nextBassTrackBtn) {
+        nextBassTrackBtn.addEventListener("click", async () => {
+          if (state.mode !== "dj") {
+            modeEl.value = "dj";
+            applyMode("dj");
+          }
+          await playBassTrackByIndex(bassTrackIndex + 1, true);
+        });
+      }
+
+      if (stopBassSetBtn) {
+        stopBassSetBtn.addEventListener("click", () => {
+          if (typeof window.hush === "function") {
+            window.hush();
+          }
+          bassSetIsPlaying = false;
+          setStatus("Bass & Brackets paused.");
+        });
+      }
+
       audioFileEl.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) {
@@ -2068,6 +2421,13 @@
       setCaptureStatus("Tab capture is off.");
       updateCaptureIndicators("off");
       syncHudDockFromPointer();
+      window.__orbitBloomDebug = () => ({
+        mode: state.mode,
+        bassSetIsPlaying,
+        activeAnalysisSource,
+        features: { ...state.features },
+        drivers: { ...state.drivers },
+      });
       requestAnimationFrame(animate);
     </script>
   </body>
