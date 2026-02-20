@@ -49,6 +49,12 @@ Docs-first extraction checklist:
   - audio must be unlocked on direct user gesture,
   - avoid blocking startup on potentially hanging init helpers.
 
+## Agent Learnings (Audio Muting & Reactivity)
+- **Worklet failures across origins/localhost**: Browsers aggressively block `AudioWorkletNode` threads on dev servers due to script scope issues. To guarantee offline/local audio doesn't silently abort, initialize Strudel with `window.initStrudel({ disableWorklets: true })`.
+- **The `.onTrigger` trap**: By default, `.onTrigger(fn)` assumes it is replacing the synth graph and mutes native `WebAudio` output (`dominantTrigger: true`). To have visual events *and* hear audio simultaneously, you must explicitly pass `false` as the second argument: `pat.onTrigger(() => { /* visuals */ }, false)`.
+- **Pure Synth vs Hosted Samples**: If `dirt-samples` or remote banks fail to fetch, audio silently dies. Use pure oscillator sounds (`s("triangle")`, `s("sawtooth")`, `s("square")`) for hyper-resilient audio fallback.
+- **`evaluate()` vs `.play()`**: Running `window.evaluate(string)` creates an isolated context. Trying to attach `.onTrigger` to JS objects that are later passed into a string `evaluate()` block drops all visual listeners. Native `.play()` on JS objects is required when building interactive Javascript UI loops alongside the patterns.
+
 ## Part 1: Terminology
 
 | Term | Definition | Strudel Equivalent |

@@ -118,6 +118,10 @@
       <div class="controls">
         <button id="startBtn">Start Beat</button>
         <button id="stopBtn" disabled>Stop</button>
+        <select id="songSelect" aria-label="Song selection">
+          <option value="house">House / Techno Groove</option>
+          <option value="jungle">Ambient Jungle / IDM</option>
+        </select>
         <select id="effectSelect" aria-label="Effect mode">
           <option value="pulse">Cube Pulse</option>
           <option value="inverse">Inverse Pulse</option>
@@ -137,10 +141,10 @@
       const startBtn = document.getElementById("startBtn");
       const stopBtn = document.getElementById("stopBtn");
       const effectSelect = document.getElementById("effectSelect");
+      const songSelect = document.getElementById("songSelect");
       const statusEl = document.getElementById("status");
       const debugEl = document.getElementById("debug");
-      const BEAT_CPS = 0.54; // ~130 BPM (if 1 cycle = 4 beats)
-      const ARRANGEMENT_MASK = "<1 1 1 1 1 1 1 0>"; // Mostly on, occasional breath.
+      let BEAT_CPS = 0.54; // default
       const ENABLE_TRIGGER_CLICKS = false;
 
       let strudelLoaded = false;
@@ -402,32 +406,117 @@
           if (typeof window.hush === "function") {
             window.hush();
           }
+          const selectedSongId = songSelect.value;
+          
+          // Define our song registry. 
+          // They use pure synths for reliable web-audio local playback without worklets.
+          const SONGS = {
+            house: {
+              cps: 0.54, // ~130 BPM
+              statusName: "upbeat House/Techno groove",
+              getTracks: () => {
+                const ARRANGEMENT_MASK = "<1 1 1 1 1 1 1 0>";
+                return {
+                  // Track 1 (D): Upbeat House/Techno beats
+                  trackOne: window.stack(
+                    window.note("c1*4").s("triangle").decay(0.12).gain(1.2).lpf(150),
+                    window.note("~ c4").s("sawtooth").decay(0.08).gain(0.2).hpf(1500),
+                    window.note("~ c6 ~ c6").s("square").decay(0.03).gain(0.08).hpf(6000),
+                    window.note("c6(3,8)").s("square").decay(0.01).gain(0.04).hpf(8000)
+                  ).mask(ARRANGEMENT_MASK),
+
+                  // Track 2 (B): Acid-inspired rolling bass
+                  trackTwo: window.note("c2(3,8) c3(1,8) eb2(2,8) c2(2,8)")
+                    .s("sawtooth")
+                    .gain(window.sine.range(0.5, 0.8).slow(4))
+                    .decay(0.15)
+                    .lpf(window.sine.range(300, 2500).slow(8))
+                    .resonance(14)
+                    .room(0.1)
+                    .mask(ARRANGEMENT_MASK),
+
+                  // Track 3 (L): Euphoric delayed piano/synth chord progression
+                  trackLead: window.note("<[c4,eb4,g4,bb4] [ab3,c4,eb4,g4] [f3,ab3,c4,eb4] [g3,bb3,d4,f4]>/4")
+                    .off(1 / 16, (x) => x.add(12).gain(0.5))
+                    .s("square")
+                    .gain(window.sine.range(0.25, 0.45).slow(6))
+                    .decay(0.3)
+                    .delay(0.6).delaytime(0.25)
+                    .room(0.8)
+                    .lpf(window.sine.range(1200, 4500).slow(12))
+                    .sometimesBy(0.25, x => x.rev())
+                    .mask("<1 1 1 0>"),
+
+                  // Track 4 (FX): High ambient noise bursts for tension
+                  trackFx: window.note("c6(5,8)")
+                    .s("triangle")
+                    .noise(0.85)
+                    .gain(window.sine.range(0.1, 0.3).slow(7))
+                    .decay(0.1)
+                    .hpf(window.sine.range(2000, 9000).slow(16))
+                    .delay(0.75)
+                    .room(0.9)
+                    .mask("<0 0 0 1 0 0 1 1>/8")
+                    .sometimesBy(0.4, (x) => x.ply(2))
+                };
+              }
+            },
+            jungle: {
+              cps: 0.72, // ~170 BPM Fast Jungle/D&B
+              statusName: "ambient Jungle/IDM break",
+              getTracks: () => {
+                return {
+                  // Track 1 (D): Fast syncopated pseudo-breakbeat using pure synths
+                  trackOne: window.stack(
+                    window.note("c1 ~ c1 ~ ~ c1 ~ c1").s("triangle").decay(0.2).gain(1.4).lpf(300), // Kick
+                    window.note("~ [~ c4] ~ c4").s("sawtooth").decay(0.05).gain(0.3).hpf(2000), // Snare/Rim
+                    window.note("c6*8").s("square").decay(0.01).gain(window.sine.range(0.02, 0.08).fast(2)).hpf(8000) // Fast Hats
+                  ),
+
+                  // Track 2 (B): Deep sustained reese/sub bass
+                  trackTwo: window.note("<c1 f1 ab0 g1>/2")
+                    .s("sawtooth")
+                    .decay(0.8)
+                    .gain(0.9)
+                    .lpf(window.sine.range(100, 600).slow(2))
+                    .resonance(20)
+                    .room(0.2),
+
+                  // Track 3 (L): Ambient IDM generative melody
+                  trackLead: window.note("0 1 2 3 4").scramble(8)
+                    .scale("C:minorPentatonic")
+                    .add(24) // Shift up two octaves manually
+                    .s("triangle")
+                    .slow(2)
+                    .gain(window.sine.range(0.4, 0.7).slow(5))
+                    .room(2)
+                    .delay(0.8).delaytime(0.4)
+                    .lpf(window.sine.range(500, 3000).slow(10)),
+
+                  // Track 4 (FX): Spatial noise washes
+                  trackFx: window.note("c5([2 3 5]/8)")
+                    .s("triangle")
+                    .noise(0.9)
+                    .gain(window.sine.range(0.05, 0.2).slow(4))
+                    .decay(0.4)
+                    .hpf(window.sine.range(4000, 8000).slow(8))
+                    .room(1.5)
+                    .sometimesBy(0.3, x => x.rev())
+                };
+              }
+            }
+          };
+
+          const activeSong = SONGS[selectedSongId] || SONGS.house;
+          BEAT_CPS = activeSong.cps;
+
           if (typeof window.cps === "function") {
             window.cps(BEAT_CPS);
           }
 
-          triggerPulseMain = 0;
-          triggerPulseLayer = 0;
-          triggerPulseLead = 0;
-          triggerPulseFx = 0;
-          triggerCountMain = 0;
-          triggerCountLayer = 0;
-          triggerCountLead = 0;
-          triggerCountFx = 0;
-          leadViz.phase = 0;
-          leadViz.spin = 0;
-          fxViz.flash = 0;
-          fxViz.sweepT = 2;
-          updateDebugCounts();
+          let { trackOne, trackTwo, trackLead, trackFx } = activeSong.getTracks();
 
-          // Track 1 (D): Upbeat House/Techno beats (Synth version to bypass sample blocking)
-          let trackOne = window.stack(
-            window.note("c1*4").s("triangle").decay(0.12).gain(1.2).lpf(150), // Kick
-            window.note("~ c4").s("sawtooth").decay(0.08).gain(0.2).hpf(1500), // Clap
-            window.note("~ c6 ~ c6").s("square").decay(0.03).gain(0.08).hpf(6000), // Open Hat
-            window.note("c6(3,8)").s("square").decay(0.01).gain(0.04).hpf(8000) // Closed Hat
-          )
-            .mask(ARRANGEMENT_MASK);
+          // Instrument trackOne trigger (Drums -> Main Cube)
           if (typeof trackOne.onTrigger === "function") {
             trackOne = trackOne.onTrigger(() => {
               triggerCountMain += 1;
@@ -437,16 +526,7 @@
             }, false);
           }
 
-          // Track 2 (B): Acid-inspired rolling bass
-          let trackTwo = window
-            .note("c2(3,8) c3(1,8) eb2(2,8) c2(2,8)")
-            .s("sawtooth")
-            .gain(window.sine.range(0.5, 0.8).slow(4))
-            .decay(0.15)
-            .lpf(window.sine.range(300, 2500).slow(8))
-            .resonance(14)
-            .room(0.1)
-            .mask(ARRANGEMENT_MASK);
+          // Instrument trackTwo trigger (Bass -> Satellite)
           if (typeof trackTwo.onTrigger === "function") {
             trackTwo = trackTwo.onTrigger(() => {
               triggerCountLayer += 1;
@@ -456,18 +536,7 @@
             }, false);
           }
 
-          // Track 3 (L): Euphoric delayed piano/synth chord progression
-          let trackLead = window
-            .note("<[c4,eb4,g4,bb4] [ab3,c4,eb4,g4] [f3,ab3,c4,eb4] [g3,bb3,d4,f4]>/4")
-            .off(1 / 16, (x) => x.add(12).gain(0.5))
-            .s("square")
-            .gain(window.sine.range(0.25, 0.45).slow(6))
-            .decay(0.3)
-            .delay(0.6).delaytime(0.25)
-            .room(0.8)
-            .lpf(window.sine.range(1200, 4500).slow(12))
-            .sometimesBy(0.25, x => x.rev())
-            .mask("<1 1 1 0>");
+          // Instrument trackLead trigger (Leads -> Rings)
           if (typeof trackLead.onTrigger === "function") {
             trackLead = trackLead.onTrigger(() => {
               triggerCountLead += 1;
@@ -477,18 +546,7 @@
             }, false);
           }
 
-          // Track 4 (FX): High ambient noise bursts for tension
-          let trackFx = window
-            .note("c6(5,8)")
-            .s("triangle")
-            .noise(0.85)
-            .gain(window.sine.range(0.1, 0.3).slow(7))
-            .decay(0.1)
-            .hpf(window.sine.range(2000, 9000).slow(16))
-            .delay(0.75)
-            .room(0.9)
-            .mask("<0 0 0 1 0 0 1 1>/8")
-            .sometimesBy(0.4, (x) => x.ply(2));
+          // Instrument trackFx trigger (FX -> Overlay/Flashes)
           if (typeof trackFx.onTrigger === "function") {
             trackFx = trackFx.onTrigger(() => {
               triggerCountFx += 1;
@@ -527,7 +585,21 @@
             audioContext
               ? audioContext.state
               : "unknown";
-          setStatus(`Playing upbeat House/Techno groove, audio: ${acState}`);
+          triggerPulseMain = 0;
+        triggerPulseLayer = 0;
+        triggerPulseLead = 0;
+        triggerPulseFx = 0;
+        triggerCountMain = 0;
+        triggerCountLayer = 0;
+        triggerCountLead = 0;
+        triggerCountFx = 0;
+        leadViz.phase = 0;
+        leadViz.spin = 0;
+        fxViz.flash = 0;
+        fxViz.sweepT = 2;
+        updateDebugCounts();
+        
+        statusEl.innerText = `Playing ${activeSong.statusName}, audio: ${acState}`;
         } catch (error) {
           console.error(error);
           setStatus(`Failed to start: ${error.message}`);
