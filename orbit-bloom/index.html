@@ -418,15 +418,14 @@
         </div>
       </div>
       <p class="subtitle">
-        3D particles in three modes: local audio-reactive playback, live tab-audio capture, and Bass &amp; Brackets live.
+        3D particles in two modes: feature-reactive local playback and live tab-audio capture.
       </p>
 
       <div class="group">
         <label for="mode">Mode</label>
         <select id="mode">
           <option value="local">Local Audio Reactive</option>
-          <option value="tab">Tab Audio Visualizer</option>
-          <option value="dj" selected>Bass &amp; Brackets Live</option>
+          <option value="tab" selected>Tab Audio Visualizer</option>
         </select>
       </div>
 
@@ -463,21 +462,8 @@
         <p class="mini">Select any browser tab and enable Share audio to drive live reactivity.</p>
       </section>
 
-      <section id="djPanel" class="hide">
-        <div class="group">
-          <div class="row">
-            <button id="playBassSet">Play Bass &amp; Brackets</button>
-            <button id="nextBassTrack">Next Track</button>
-          </div>
-          <div class="row">
-            <button id="stopBassSet">Stop Music</button>
-          </div>
-          <p class="mini">Dedicated Bass &amp; Brackets visualizer mode. Reacts directly to the locked set.</p>
-        </div>
-      </section>
-
-      <p id="status">Bass &amp; Brackets mode is ready. Press Play to start reactive visuals.</p>
-      <p class="mini">Tab capture uses secure capture permission. No direct speaker-output access is needed.</p>
+      <p id="status">Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab.</p>
+      <p class="mini">Tab audio uses secure capture permission. No direct speaker-output access is needed.</p>
     </aside>
     <div id="hudGutterHit" class="hud-gutter-hit"></div>
 
@@ -486,7 +472,7 @@
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
       const state = {
-        mode: "dj",
+        mode: "tab",
         sensitivity: 1.4,
         estimatedBpm: 110,
         energy: 0.03,
@@ -532,12 +518,8 @@
       const audioEl = document.getElementById("audio");
       const localPanelEl = document.getElementById("localPanel");
       const tabPanelEl = document.getElementById("tabPanel");
-      const djPanelEl = document.getElementById("djPanel");
       const startCaptureBtn = document.getElementById("startCapture");
       const stopCaptureBtn = document.getElementById("stopCapture");
-      const playBassSetBtn = document.getElementById("playBassSet");
-      const nextBassTrackBtn = document.getElementById("nextBassTrack");
-      const stopBassSetBtn = document.getElementById("stopBassSet");
       const captureStatusEl = document.getElementById("captureStatus");
       const captureBadgeEl = document.getElementById("captureBadge");
       const captureBadgeTextEl = document.getElementById("captureBadgeText");
@@ -554,33 +536,10 @@
       let captureMediaSource;
       let captureStream;
       let captureStartedAt = 0;
-      let bassSetStartedAt = 0;
-      let bassSetIsPlaying = false;
-      const djJourneyRuntime = {
-        sectionName: "idle",
-        stage: "idle",
-        sectionProgress: 0,
-        gravityPull: 0,
-        rebound: 0,
-        hueShift: 0,
-        flowBoost: 0,
-        cameraPunch: 0,
-        transientBoost: 0,
-        kickPulse: 0,
-        snarePulse: 0,
-        hatPulse: 0,
-        bassPulse: 0,
-        leadPulse: 0,
-        laserGate: 0,
-        tunnelMorph: 0,
-      };
       let localToAnalyserConnected = false;
       let captureToAnalyserConnected = false;
       let analyserToDestinationConnected = false;
       let activeAnalysisSource = "none";
-      let strudelAnalyserNode;
-      let strudelFrequencyData;
-      let prevStrudelSpectrumData;
       let currentObjectUrl;
       let lastBandReadoutUpdate = 0;
       let lastFlowReadoutUpdate = 0;
@@ -604,154 +563,6 @@
         helix: 0,
         surge: 0,
       };
-      const STRUDEL_WEB_SCRIPT_URL = "https://unpkg.com/@strudel/web@1.0.3";
-      const BASS_AND_BRACKETS_SET = [
-        {
-          title: "Rusted Hearts",
-          bpm: 114,
-          profile: { drive: 0.9, shimmer: 0.46, punch: 0.74 },
-          journey: [
-            { name: "intro", bars: 8, drive: 0.44, punch: 0.34, shimmer: 0.58, texture: 0.8, flow: 0.28, calm: 0.84, gravity: 0.1, rebound: 0.08, hue: 0.0 },
-            { name: "build", bars: 8, drive: 0.66, punch: 0.54, shimmer: 0.54, texture: 0.62, flow: 0.5, calm: 0.68, gravity: 0.22, rebound: 0.2, hue: 0.02 },
-            { name: "drop", bars: 8, drive: 0.9, punch: 0.84, shimmer: 0.38, texture: 0.44, flow: 0.88, calm: 0.38, gravity: 0.58, rebound: 0.52, hue: 0.05 },
-            { name: "break", bars: 4, drive: 0.34, punch: 0.24, shimmer: 0.7, texture: 0.86, flow: 0.22, calm: 0.9, gravity: 0.06, rebound: 0.05, hue: 0.01 },
-            { name: "drop-ii", bars: 12, drive: 0.96, punch: 0.9, shimmer: 0.36, texture: 0.42, flow: 0.96, calm: 0.3, gravity: 0.64, rebound: 0.58, hue: 0.07 },
-            { name: "release", bars: 8, drive: 0.5, punch: 0.38, shimmer: 0.66, texture: 0.74, flow: 0.42, calm: 0.78, gravity: 0.14, rebound: 0.16, hue: 0.03 },
-          ],
-          build: ({ note, stack, cat }) => {
-            const sequence = typeof cat === "function" ? cat : (...parts) => parts[0];
-            const intro = stack(
-              note("c2 ~ ~ c2 ~ ~ g1 ~").s("sawtooth").gain(0.34),
-              note("[c4 eb4 g4 bb4] ~ [c4 eb4 g4 bb4] ~").s("triangle").slow(2).gain(0.16),
-              note("~ ~ g4 ~ ~ bb4 ~ eb5").s("sine").slow(2).gain(0.09)
-            );
-            const build = stack(
-              note("c2 c2 g1 c2 eb2 c2 g1 c2").s("square").fast(2).gain(0.42),
-              note("[c4 eb4 g4 bb4]*2").s("triangle").fast(2).gain(0.18),
-              note("g4 bb4 c5 eb5 g5 eb5 c5 bb4").s("sine").fast(2).gain(0.13)
-            );
-            const drop = stack(
-              note("c2 c2 c2 c2 eb2 eb2 g1 g1").s("sawtooth").fast(4).gain(0.5),
-              note("~ g4 ~ bb4 ~ c5 ~ eb5").s("square").fast(4).gain(0.2),
-              note("c5 ~ ~ ~ c6 ~ ~ ~").s("sine").fast(8).gain(0.12)
-            );
-            const breakDown = stack(
-              note("c2 ~ ~ ~ ~ ~ ~ ~").s("triangle").gain(0.18),
-              note("~ ~ [g4 bb4] ~ ~ ~ [eb5 g5] ~").s("sine").slow(2).gain(0.08)
-            );
-            return sequence(intro, intro, build, drop, breakDown, build, drop, drop);
-          },
-        },
-        {
-          title: "Neon Bruise",
-          bpm: 96,
-          profile: { drive: 0.64, shimmer: 0.82, punch: 0.48 },
-          journey: [
-            { name: "nightfall", bars: 8, drive: 0.4, punch: 0.26, shimmer: 0.84, texture: 0.84, flow: 0.2, calm: 0.9, gravity: 0.05, rebound: 0.06, hue: 0.08 },
-            { name: "lift", bars: 8, drive: 0.56, punch: 0.42, shimmer: 0.8, texture: 0.72, flow: 0.42, calm: 0.74, gravity: 0.16, rebound: 0.18, hue: 0.1 },
-            { name: "sprint", bars: 12, drive: 0.74, punch: 0.68, shimmer: 0.66, texture: 0.56, flow: 0.8, calm: 0.44, gravity: 0.42, rebound: 0.44, hue: 0.12 },
-            { name: "hush", bars: 4, drive: 0.28, punch: 0.2, shimmer: 0.92, texture: 0.9, flow: 0.16, calm: 0.94, gravity: 0.04, rebound: 0.04, hue: 0.06 },
-            { name: "surge", bars: 8, drive: 0.82, punch: 0.72, shimmer: 0.62, texture: 0.52, flow: 0.86, calm: 0.36, gravity: 0.52, rebound: 0.5, hue: 0.14 },
-            { name: "after", bars: 8, drive: 0.46, punch: 0.32, shimmer: 0.86, texture: 0.78, flow: 0.34, calm: 0.82, gravity: 0.08, rebound: 0.1, hue: 0.09 },
-          ],
-          build: ({ note, stack, cat }) => {
-            const sequence = typeof cat === "function" ? cat : (...parts) => parts[0];
-            const intro = stack(
-              note("c3 ~ eb3 ~ g2 ~ bb2 ~").s("triangle").slow(2).gain(0.28),
-              note("~ [g4 bb4 d5] ~ ~ [f4 bb4 d5] ~").s("sine").slow(2).gain(0.11),
-              note("c2 ~ ~ ~ c2 ~ ~ ~").s("sawtooth").gain(0.2)
-            );
-            const rise = stack(
-              note("c3 eb3 g2 bb2 c3 eb3 g2 bb2").s("square").fast(2).gain(0.36),
-              note("d5 f5 g5 bb5 g5 f5 d5 bb4").s("sine").fast(2).gain(0.14),
-              note("c2 c2 ~ c2 c2 c2 ~ c2").s("sawtooth").fast(2).gain(0.24)
-            );
-            const sprint = stack(
-              note("c3 c3 bb2 c3 eb3 eb3 g2 bb2").s("sawtooth").fast(3).gain(0.44),
-              note("g4 bb4 d5 f5 g5 f5 d5 bb4").s("triangle").fast(3).gain(0.18),
-              note("~ c6 ~ bb5 ~ g5 ~ f5").s("square").fast(6).gain(0.1)
-            );
-            const hush = stack(
-              note("c2 ~ ~ ~ c2 ~ ~ ~").s("sine").gain(0.14),
-              note("~ ~ g4 ~ ~ ~ f4 ~").s("triangle").slow(2).gain(0.08)
-            );
-            return sequence(intro, intro, rise, sprint, hush, rise, sprint, intro);
-          },
-        },
-        {
-          title: "Steel Confession",
-          bpm: 132,
-          profile: { drive: 0.94, shimmer: 0.34, punch: 0.9 },
-          journey: [
-            { name: "pressure", bars: 6, drive: 0.58, punch: 0.52, shimmer: 0.4, texture: 0.62, flow: 0.5, calm: 0.62, gravity: 0.24, rebound: 0.2, hue: -0.02 },
-            { name: "grind", bars: 10, drive: 0.86, punch: 0.78, shimmer: 0.34, texture: 0.5, flow: 0.82, calm: 0.38, gravity: 0.54, rebound: 0.46, hue: 0.0 },
-            { name: "dropout", bars: 4, drive: 0.3, punch: 0.24, shimmer: 0.48, texture: 0.76, flow: 0.2, calm: 0.88, gravity: 0.08, rebound: 0.07, hue: -0.01 },
-            { name: "overdrive", bars: 12, drive: 0.98, punch: 0.94, shimmer: 0.32, texture: 0.42, flow: 0.96, calm: 0.24, gravity: 0.7, rebound: 0.6, hue: 0.03 },
-            { name: "fallout", bars: 8, drive: 0.62, punch: 0.52, shimmer: 0.38, texture: 0.68, flow: 0.54, calm: 0.58, gravity: 0.28, rebound: 0.24, hue: 0.01 },
-          ],
-          build: ({ note, stack, cat }) => {
-            const sequence = typeof cat === "function" ? cat : (...parts) => parts[0];
-            const intro = stack(
-              note("c2 c2 ~ c2 g1 ~ c2 ~").s("square").fast(2).gain(0.34),
-              note("~ ~ [c4 eb4 g4] ~ ~ ~ [bb3 d4 g4] ~").s("triangle").slow(2).gain(0.12)
-            );
-            const grind = stack(
-              note("c2 c2 g1 c2 bb1 c2 g1 c2").s("sawtooth").fast(4).gain(0.48),
-              note("c4 eb4 g4 bb4 c5 bb4 g4 eb4").s("square").fast(4).gain(0.17),
-              note("~ ~ c6 ~ ~ ~ bb5 ~").s("sine").fast(8).gain(0.11)
-            );
-            const dropOut = stack(
-              note("c2 ~ ~ ~ c2 ~ ~ ~").s("triangle").gain(0.18),
-              note("~ ~ ~ ~ ~ [g4 bb4] ~ ~").s("sine").slow(2).gain(0.07)
-            );
-            const overdrive = stack(
-              note("c2 c2 c2 c2 eb2 eb2 g1 g1").s("sawtooth").fast(5).gain(0.54),
-              note("g4 bb4 c5 eb5 g5 eb5 c5 bb4").s("square").fast(5).gain(0.2),
-              note("c6 ~ bb5 ~ g5 ~ eb5 ~").s("sine").fast(10).gain(0.12)
-            );
-            return sequence(intro, grind, grind, dropOut, overdrive, overdrive, grind, dropOut);
-          },
-        },
-        {
-          title: "Afterglow Cathedral",
-          bpm: 88,
-          profile: { drive: 0.58, shimmer: 0.78, punch: 0.38 },
-          journey: [
-            { name: "cathedral", bars: 10, drive: 0.34, punch: 0.2, shimmer: 0.9, texture: 0.92, flow: 0.18, calm: 0.95, gravity: 0.04, rebound: 0.05, hue: 0.11 },
-            { name: "lift", bars: 8, drive: 0.52, punch: 0.36, shimmer: 0.84, texture: 0.82, flow: 0.36, calm: 0.82, gravity: 0.12, rebound: 0.14, hue: 0.09 },
-            { name: "long-drop", bars: 10, drive: 0.72, punch: 0.62, shimmer: 0.62, texture: 0.64, flow: 0.68, calm: 0.5, gravity: 0.38, rebound: 0.34, hue: 0.06 },
-            { name: "release", bars: 6, drive: 0.36, punch: 0.24, shimmer: 0.86, texture: 0.9, flow: 0.2, calm: 0.92, gravity: 0.06, rebound: 0.07, hue: 0.1 },
-            { name: "finale", bars: 10, drive: 0.78, punch: 0.66, shimmer: 0.58, texture: 0.6, flow: 0.74, calm: 0.42, gravity: 0.42, rebound: 0.4, hue: 0.08 },
-          ],
-          build: ({ note, stack, cat }) => {
-            const sequence = typeof cat === "function" ? cat : (...parts) => parts[0];
-            const intro = stack(
-              note("c3 ~ eb3 ~ g3 ~ bb3 ~").s("triangle").slow(3).gain(0.28),
-              note("c5 bb4 g4 eb4").s("sine").slow(4).gain(0.13),
-              note("c2 ~ ~ ~ ~ ~ ~ ~").s("sawtooth").gain(0.16)
-            );
-            const lift = stack(
-              note("c3 eb3 g3 bb3 c4 bb3 g3 eb3").s("square").fast(2).gain(0.34),
-              note("g4 bb4 c5 eb5 g5 eb5 c5 bb4").s("triangle").fast(2).gain(0.16),
-              note("c2 c2 ~ c2 c2 ~ c2 ~").s("sawtooth").fast(2).gain(0.24)
-            );
-            const longDrop = stack(
-              note("c2 c2 c2 c2 ~ ~ g1 g1").s("sawtooth").fast(3).gain(0.43),
-              note("~ c5 ~ eb5 ~ g5 ~ bb5").s("square").fast(3).gain(0.16),
-              note("c6 ~ ~ ~ ~ ~ ~ ~").s("sine").fast(6).gain(0.1)
-            );
-            const release = stack(
-              note("c3 ~ ~ eb3 ~ ~ g3 ~").s("triangle").slow(2).gain(0.22),
-              note("~ ~ bb4 ~ ~ ~ g4 ~").s("sine").slow(2).gain(0.09)
-            );
-            return sequence(intro, lift, longDrop, release, lift, longDrop, release, intro);
-          },
-        },
-      ];
-      let bassTrackIndex = 0;
-      let strudelEngineReady = false;
-      let strudelEngineLoading = false;
-      let strudelEnginePromise = null;
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -1100,167 +911,6 @@
         }
       }
 
-      function loadScriptOnce(src) {
-        return new Promise((resolve, reject) => {
-          const existing = document.querySelector(`script[src="${src}"]`);
-          if (existing) {
-            if (existing.dataset.loaded === "true") {
-              resolve();
-              return;
-            }
-            existing.addEventListener("load", () => resolve(), { once: true });
-            existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
-            return;
-          }
-
-          const script = document.createElement("script");
-          script.src = src;
-          script.addEventListener(
-            "load",
-            () => {
-              script.dataset.loaded = "true";
-              resolve();
-            },
-            { once: true }
-          );
-          script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
-          document.head.appendChild(script);
-        });
-      }
-
-      function setBassControlsDisabled(disabled) {
-        if (playBassSetBtn) {
-          playBassSetBtn.disabled = disabled;
-        }
-        if (nextBassTrackBtn) {
-          nextBassTrackBtn.disabled = disabled;
-        }
-        if (stopBassSetBtn) {
-          stopBassSetBtn.disabled = disabled;
-        }
-      }
-
-      function ensureStrudelAnalyser() {
-        if (typeof window.getAnalyser !== "function") {
-          return null;
-        }
-        try {
-          const analyserNode = window.getAnalyser();
-          if (!analyserNode) {
-            return null;
-          }
-          strudelAnalyserNode = analyserNode;
-          if (!strudelFrequencyData || strudelFrequencyData.length !== analyserNode.frequencyBinCount) {
-            strudelFrequencyData = new Uint8Array(analyserNode.frequencyBinCount);
-            prevStrudelSpectrumData = new Float32Array(analyserNode.frequencyBinCount);
-          }
-          return strudelAnalyserNode;
-        } catch {
-          return null;
-        }
-      }
-
-      function waitForStrudelRuntime(timeoutMs = 8000) {
-        const startedAt = performance.now();
-        return new Promise((resolve, reject) => {
-          const tick = () => {
-            const runtimeReady =
-              typeof window.hush === "function" && typeof window.note === "function" && typeof window.stack === "function";
-            if (runtimeReady) {
-              resolve();
-              return;
-            }
-            if (performance.now() - startedAt >= timeoutMs) {
-              reject(new Error("Strudel runtime did not become ready in time"));
-              return;
-            }
-            requestAnimationFrame(tick);
-          };
-          tick();
-        });
-      }
-
-      async function ensureStrudelEngine() {
-        if (strudelEngineReady) {
-          return true;
-        }
-        if (strudelEnginePromise) {
-          return strudelEnginePromise;
-        }
-
-        strudelEnginePromise = (async () => {
-          strudelEngineLoading = true;
-          setBassControlsDisabled(true);
-          setStatus("Loading Bass & Brackets audio engine...");
-
-          try {
-            await loadScriptOnce(STRUDEL_WEB_SCRIPT_URL);
-            if (typeof window.initStrudel !== "function") {
-              throw new Error("initStrudel is unavailable");
-            }
-            window.initStrudel();
-            await waitForStrudelRuntime();
-            ensureStrudelAnalyser();
-            strudelEngineReady = true;
-            setStatus("Bass & Brackets engine ready.");
-            return true;
-          } catch (error) {
-            console.error(error);
-            setStatus("Could not load Bass & Brackets audio engine. Check network access and reload.");
-            return false;
-          } finally {
-            strudelEngineLoading = false;
-            setBassControlsDisabled(false);
-          }
-        })();
-
-        const ready = await strudelEnginePromise;
-        if (!ready) {
-          strudelEnginePromise = null;
-        }
-        return ready;
-      }
-
-      async function playBassTrackByIndex(index, announce = true) {
-        const ready = await ensureStrudelEngine();
-        if (!ready) {
-          return false;
-        }
-
-        const trackCount = BASS_AND_BRACKETS_SET.length;
-        bassTrackIndex = ((index % trackCount) + trackCount) % trackCount;
-        const track = BASS_AND_BRACKETS_SET[bassTrackIndex];
-        const hushFn = window.hush;
-        const noteFn = window.note;
-        const stackFn = window.stack;
-        const catFn = window.cat;
-
-        if (typeof noteFn !== "function" || typeof stackFn !== "function") {
-          setStatus("Strudel sound engine is unavailable.");
-          return false;
-        }
-
-        if (typeof hushFn === "function") {
-          hushFn();
-        }
-        ensureStrudelAnalyser();
-        const pattern = typeof track.build === "function" ? track.build({ note: noteFn, stack: stackFn, cat: catFn }) : null;
-        if (typeof pattern.play !== "function") {
-          setStatus("Could not start track playback.");
-          return false;
-        }
-        resetReactiveHistory();
-        pattern.play();
-        bassSetIsPlaying = true;
-        bassSetStartedAt = performance.now() * 0.001;
-        resetDjJourneyRuntime();
-
-        if (announce) {
-          setStatus(`Now playing Bass & Brackets: ${track.title} (${bassTrackIndex + 1}/${trackCount}).`);
-        }
-        return true;
-      }
-
       function setHudDockState(nextState) {
         if (hudDockState === nextState) {
           return;
@@ -1533,22 +1183,13 @@
         if (modeEl && modeEl.value !== mode) {
           modeEl.value = mode;
         }
-        const previousMode = state.mode;
         state.mode = mode;
-        const isLocal = mode === "local";
         const isTab = mode === "tab";
-        const isDj = mode === "dj";
         if (!isTab && captureStream) {
           stopTabCapture("", true);
         }
-        if (previousMode === "dj" && !isDj && bassSetIsPlaying && typeof window.hush === "function") {
-          window.hush();
-          bassSetIsPlaying = false;
-          resetDjJourneyRuntime();
-        }
-        localPanelEl.classList.toggle("hide", !isLocal);
+        localPanelEl.classList.toggle("hide", isTab);
         tabPanelEl.classList.toggle("hide", !isTab);
-        djPanelEl.classList.toggle("hide", !isDj);
         if (isTab) {
           setStatus(
             captureStream
@@ -1556,13 +1197,6 @@
               : "Tab audio mode is ready. Start Capture Tab Audio to react to any shared tab."
           );
           updateCaptureIndicators(captureStream ? "armed" : "off");
-        } else if (isDj) {
-          setStatus(
-            bassSetIsPlaying
-              ? `Now playing Bass & Brackets: ${BASS_AND_BRACKETS_SET[bassTrackIndex].title} (${bassTrackIndex + 1}/${BASS_AND_BRACKETS_SET.length}).`
-              : "Bass & Brackets mode is ready. Press Play to start reactive visuals."
-          );
-          updateCaptureIndicators("off");
         } else {
           setStatus(audioEl.src ? "Local audio mode active." : "Load an audio file to start local reactive mode.");
           updateCaptureIndicators("off");
@@ -1570,21 +1204,27 @@
         syncHudDockFromPointer();
       }
 
-      function emptyFeatureVector() {
-        return {
-          loudness: 0,
-          flux: 0,
-          centroid: 0,
-          rolloff: 0,
-          spread: 0,
-          flatness: 0,
-        };
-      }
-
-      function featuresFromSpectrum(spectrumData, previousSpectrumData, loudness) {
-        if (!spectrumData || !spectrumData.length) {
-          return emptyFeatureVector();
+      function extractAudioFeatures() {
+        if (!analyser || !frequencyData || !timeDomainData) {
+          return {
+            loudness: 0,
+            flux: 0,
+            centroid: 0,
+            rolloff: 0,
+            spread: 0,
+            flatness: 0,
+          };
         }
+
+        analyser.getByteFrequencyData(frequencyData);
+        analyser.getByteTimeDomainData(timeDomainData);
+
+        let rmsSum = 0;
+        for (let i = 0; i < timeDomainData.length; i += 1) {
+          const sample = (timeDomainData[i] - 128) / 128;
+          rmsSum += sample * sample;
+        }
+        const loudness = Math.sqrt(rmsSum / Math.max(1, timeDomainData.length));
 
         let sum = 0;
         let weighted = 0;
@@ -1593,25 +1233,25 @@
         let flatnessMeanAcc = 0;
         const eps = 1e-5;
 
-        for (let i = 0; i < spectrumData.length; i += 1) {
-          const v = spectrumData[i] / 255;
+        for (let i = 0; i < frequencyData.length; i += 1) {
+          const v = frequencyData[i] / 255;
           const vSafe = v + eps;
           sum += v;
           weighted += i * v;
           logAcc += Math.log(vSafe);
           flatnessMeanAcc += vSafe;
-          if (previousSpectrumData) {
-            const diff = v - previousSpectrumData[i];
+          if (prevSpectrumData) {
+            const diff = v - prevSpectrumData[i];
             if (diff > 0) {
               fluxAcc += diff;
             }
-            previousSpectrumData[i] = v;
+            prevSpectrumData[i] = v;
           }
         }
 
         if (sum < 1e-6) {
           return {
-            loudness,
+            loudness: loudness,
             flux: 0,
             centroid: 0,
             rolloff: 0,
@@ -1625,8 +1265,8 @@
         let cumulative = 0;
         let rolloffBin = 0;
         const rolloffTarget = sum * 0.85;
-        for (let i = 0; i < spectrumData.length; i += 1) {
-          const v = spectrumData[i] / 255;
+        for (let i = 0; i < frequencyData.length; i += 1) {
+          const v = frequencyData[i] / 255;
           const d = i - centroid;
           spreadAcc += d * d * v;
           cumulative += v;
@@ -1635,14 +1275,14 @@
           }
         }
 
-        const n = Math.max(1, spectrumData.length - 1);
+        const n = Math.max(1, frequencyData.length - 1);
         const centroidNorm = centroid / n;
         const spreadNorm = Math.min(1, Math.sqrt(spreadAcc / sum) / (n * 0.5));
         const rolloffNorm = rolloffBin / n;
         const flatness =
-          Math.exp(logAcc / Math.max(1, spectrumData.length)) /
-          (flatnessMeanAcc / Math.max(1, spectrumData.length));
-        const fluxNorm = fluxAcc / Math.max(1, spectrumData.length);
+          Math.exp(logAcc / Math.max(1, frequencyData.length)) /
+          (flatnessMeanAcc / Math.max(1, frequencyData.length));
+        const fluxNorm = fluxAcc / Math.max(1, frequencyData.length);
 
         return {
           loudness,
@@ -1652,377 +1292,6 @@
           spread: spreadNorm,
           flatness: THREE.MathUtils.clamp(flatness, 0, 1),
         };
-      }
-
-      function extractAudioFeatures() {
-        if (!analyser || !frequencyData || !timeDomainData) {
-          return emptyFeatureVector();
-        }
-
-        analyser.getByteFrequencyData(frequencyData);
-        analyser.getByteTimeDomainData(timeDomainData);
-
-        let rmsSum = 0;
-        for (let i = 0; i < timeDomainData.length; i += 1) {
-          const sample = (timeDomainData[i] - 128) / 128;
-          rmsSum += sample * sample;
-        }
-        const loudness = Math.sqrt(rmsSum / Math.max(1, timeDomainData.length));
-        return featuresFromSpectrum(frequencyData, prevSpectrumData, loudness);
-      }
-
-      function extractStrudelFeatures() {
-        const analyserNode = ensureStrudelAnalyser();
-        if (!analyserNode || !strudelFrequencyData) {
-          return emptyFeatureVector();
-        }
-
-        analyserNode.getByteFrequencyData(strudelFrequencyData);
-
-        let spectrumPower = 0;
-        for (let i = 0; i < strudelFrequencyData.length; i += 1) {
-          const v = strudelFrequencyData[i] / 255;
-          spectrumPower += v * v;
-        }
-        const loudness = Math.sqrt(spectrumPower / Math.max(1, strudelFrequencyData.length));
-        return featuresFromSpectrum(strudelFrequencyData, prevStrudelSpectrumData, loudness);
-      }
-
-      function extractDjFallbackFeatures(nowSeconds) {
-        const track = BASS_AND_BRACKETS_SET[bassTrackIndex] || BASS_AND_BRACKETS_SET[0];
-        const bpm = Math.max(72, track?.bpm || 110);
-        const beat = Math.max(0, nowSeconds - bassSetStartedAt) * (bpm / 60);
-        const beatPos = beat % 1;
-        const halfPos = (beat * 2) % 1;
-        const quarterPos = (beat * 4) % 1;
-        const kick = Math.pow(1 - beatPos, 4);
-        const snare = Math.pow(1 - halfPos, 3);
-        const hat = Math.pow(1 - quarterPos, 2);
-        const driveBias = track?.profile?.drive ?? 0.6;
-        const punchBias = track?.profile?.punch ?? 0.5;
-        const shimmerBias = track?.profile?.shimmer ?? 0.5;
-        const tonal = 0.5 + 0.5 * Math.sin(beat * 0.63 + driveBias * Math.PI);
-        const air = 0.5 + 0.5 * Math.sin(beat * 1.17 + shimmerBias * Math.PI * 0.5);
-        const loudness = THREE.MathUtils.clamp(0.11 + kick * 0.6 + snare * 0.24 + hat * 0.12, 0, 1);
-        const flux = THREE.MathUtils.clamp(0.08 + kick * 0.82 + snare * 0.32 + hat * 0.22, 0, 1.2);
-        const centroid = THREE.MathUtils.clamp(0.18 + air * 0.46 + (1 - driveBias) * 0.2, 0, 1);
-        const rolloff = THREE.MathUtils.clamp(0.24 + tonal * 0.34 + shimmerBias * 0.22, 0, 1);
-        const spread = THREE.MathUtils.clamp(0.22 + air * 0.3 + hat * 0.34, 0, 1);
-        const flatness = THREE.MathUtils.clamp(0.16 + (1 - tonal) * 0.34 + punchBias * 0.18, 0, 1);
-        return {
-          loudness,
-          flux,
-          centroid,
-          rolloff,
-          spread,
-          flatness,
-        };
-      }
-
-      const DJ_STAGE_RHYTHMS = {
-        intro: {
-          kick: "x-------x-------",
-          snare: "----x-------x---",
-          hat: "x---x---x---x---",
-          bass: "x-------x---x---",
-          lead: "--------x-------",
-        },
-        build: {
-          kick: "x---x---x---x---",
-          snare: "----x-------x---",
-          hat: "x-x-x-x-x-x-x-x-",
-          bass: "x-x---x-x---x-x-",
-          lead: "------x---x-----",
-        },
-        drop: {
-          kick: "x-xx-x-xx-x-xx-x",
-          snare: "----x---x---x---",
-          hat: "xxxxxxxxxxxxxxxx",
-          bass: "x-xx--x-x-xx--x-",
-          lead: "--x---x---x---x-",
-        },
-        break: {
-          kick: "x-------x-------",
-          snare: "--------x-------",
-          hat: "----x-------x---",
-          bass: "x-------x-------",
-          lead: "----x---x---x---",
-        },
-        release: {
-          kick: "x---x-------x---",
-          snare: "----x-------x---",
-          hat: "x-x---x-x---x-x-",
-          bass: "x---x---x---x---",
-          lead: "------x-----x---",
-        },
-        climax: {
-          kick: "x-xx-xxx-x-xx-xx",
-          snare: "--x---x---x---x-",
-          hat: "xxxxxxxxxxxxxxxx",
-          bass: "x-xx-xx--x-xx-xx",
-          lead: "x---x-xx--x---x-",
-        },
-      };
-
-      const DJ_STAGE_BEHAVIOR = {
-        intro: { flow: 0.32, calm: 0.9, laser: 0.06, camera: 0.08, gravity: 0.12, rebound: 0.12, color: -0.02, tunnel: 0.12 },
-        build: { flow: 0.56, calm: 0.7, laser: 0.28, camera: 0.2, gravity: 0.34, rebound: 0.3, color: 0.0, tunnel: 0.28 },
-        drop: { flow: 0.92, calm: 0.34, laser: 0.84, camera: 0.62, gravity: 0.78, rebound: 0.62, color: 0.05, tunnel: 0.7 },
-        break: { flow: 0.18, calm: 0.95, laser: 0.03, camera: 0.04, gravity: 0.08, rebound: 0.1, color: -0.03, tunnel: 0.08 },
-        release: { flow: 0.46, calm: 0.8, laser: 0.18, camera: 0.16, gravity: 0.22, rebound: 0.24, color: 0.02, tunnel: 0.22 },
-        climax: { flow: 1, calm: 0.24, laser: 1, camera: 0.82, gravity: 0.92, rebound: 0.78, color: 0.08, tunnel: 0.86 },
-      };
-      const DJ_STAGE_RENDER = {
-        idle: { speed: 1, spiral: 0, collapse: 0, laser: 1, drop: 0, lift: 0, jitter: 0, bassWarp: 0, camera: 0, hue: 0, pulse: 0 },
-        intro: { speed: 0.9, spiral: 0.2, collapse: 0.08, laser: 0.38, drop: 0.12, lift: 0.14, jitter: 0.16, bassWarp: 0.16, camera: 0.14, hue: -0.02, pulse: 0.2 },
-        build: { speed: 1.04, spiral: 0.5, collapse: 0.22, laser: 0.74, drop: 0.34, lift: 0.28, jitter: 0.3, bassWarp: 0.34, camera: 0.32, hue: 0.0, pulse: 0.42 },
-        drop: { speed: 1.2, spiral: 0.86, collapse: 0.58, laser: 1.2, drop: 0.7, lift: 0.54, jitter: 0.58, bassWarp: 0.62, camera: 0.62, hue: 0.05, pulse: 0.7 },
-        break: { speed: 0.78, spiral: 0.12, collapse: 0.04, laser: 0.2, drop: 0.08, lift: 0.18, jitter: 0.12, bassWarp: 0.08, camera: 0.08, hue: -0.03, pulse: 0.12 },
-        release: { speed: 0.96, spiral: 0.3, collapse: 0.14, laser: 0.5, drop: 0.2, lift: 0.24, jitter: 0.26, bassWarp: 0.24, camera: 0.24, hue: 0.02, pulse: 0.26 },
-        climax: { speed: 1.32, spiral: 1, collapse: 0.72, laser: 1.32, drop: 0.86, lift: 0.68, jitter: 0.72, bassWarp: 0.74, camera: 0.84, hue: 0.08, pulse: 0.82 },
-      };
-
-      const djPatternEventCache = new Map();
-
-      function inferDjStage(sectionName) {
-        const name = String(sectionName || "").toLowerCase();
-        if (name.includes("drop-ii") || name.includes("overdrive") || name.includes("surge") || name.includes("finale")) {
-          return "climax";
-        }
-        if (name.includes("drop") || name.includes("sprint") || name.includes("long-drop")) {
-          return "drop";
-        }
-        if (name.includes("break") || name.includes("hush") || name.includes("dropout")) {
-          return "break";
-        }
-        if (name.includes("release") || name.includes("after") || name.includes("fallout")) {
-          return "release";
-        }
-        if (name.includes("build") || name.includes("lift") || name.includes("rise") || name.includes("pressure") || name.includes("grind")) {
-          return "build";
-        }
-        return "intro";
-      }
-
-      function rhythmEventsFromPattern(pattern) {
-        const safe = String(pattern || "").replace(/\s/g, "");
-        if (!safe.length) {
-          return { length: 16, hits: [0] };
-        }
-        if (djPatternEventCache.has(safe)) {
-          return djPatternEventCache.get(safe);
-        }
-        const hits = [];
-        for (let i = 0; i < safe.length; i += 1) {
-          if (safe[i] !== "-" && safe[i] !== "." && safe[i] !== "_") {
-            hits.push(i);
-          }
-        }
-        const parsed = { length: safe.length, hits: hits.length ? hits : [0] };
-        djPatternEventCache.set(safe, parsed);
-        return parsed;
-      }
-
-      function pulseFromPattern(pattern, stepPosition, spread = 0.34) {
-        const parsed = rhythmEventsFromPattern(pattern);
-        const stepCount = parsed.length;
-        const pos = ((stepPosition % stepCount) + stepCount) % stepCount;
-        let pulse = 0;
-        for (const hit of parsed.hits) {
-          const direct = Math.abs(pos - hit);
-          const wrapped = Math.min(direct, stepCount - direct);
-          const value = Math.exp(-Math.pow(wrapped / Math.max(0.12, spread), 2));
-          if (value > pulse) {
-            pulse = value;
-          }
-        }
-        return pulse;
-      }
-
-      function resetDjJourneyRuntime() {
-        djJourneyRuntime.sectionName = "idle";
-        djJourneyRuntime.stage = "idle";
-        djJourneyRuntime.sectionProgress = 0;
-        djJourneyRuntime.gravityPull = 0;
-        djJourneyRuntime.rebound = 0;
-        djJourneyRuntime.hueShift = 0;
-        djJourneyRuntime.flowBoost = 0;
-        djJourneyRuntime.cameraPunch = 0;
-        djJourneyRuntime.transientBoost = 0;
-        djJourneyRuntime.kickPulse = 0;
-        djJourneyRuntime.snarePulse = 0;
-        djJourneyRuntime.hatPulse = 0;
-        djJourneyRuntime.bassPulse = 0;
-        djJourneyRuntime.leadPulse = 0;
-        djJourneyRuntime.laserGate = 0;
-        djJourneyRuntime.tunnelMorph = 0;
-      }
-
-      function getDjJourneyFrame(nowSeconds) {
-        const track = BASS_AND_BRACKETS_SET[bassTrackIndex] || BASS_AND_BRACKETS_SET[0];
-        if (!track) {
-          return null;
-        }
-        const sections =
-          Array.isArray(track.journey) && track.journey.length
-            ? track.journey
-            : [{ name: "main", bars: 8, drive: 0.6, punch: 0.6, shimmer: 0.6, texture: 0.6, flow: 0.6, calm: 0.6, gravity: 0.2, rebound: 0.2, hue: 0 }];
-        const bpm = Math.max(72, track.bpm || 110);
-        const beatsPerBar = 4;
-        const totalBeats = Math.max(
-          beatsPerBar,
-          sections.reduce((sum, section) => sum + Math.max(1, Number(section.bars || 1)) * beatsPerBar, 0)
-        );
-        const elapsedBeats = Math.max(0, (nowSeconds - bassSetStartedAt) * (bpm / 60));
-        const loopBeat = elapsedBeats % totalBeats;
-
-        let sectionStart = 0;
-        let section = sections[0];
-        for (const candidate of sections) {
-          const sectionBeats = Math.max(1, Number(candidate.bars || 1)) * beatsPerBar;
-          if (loopBeat < sectionStart + sectionBeats) {
-            section = candidate;
-            break;
-          }
-          sectionStart += sectionBeats;
-        }
-
-        const sectionBeats = Math.max(1, Number(section.bars || 1)) * beatsPerBar;
-        const sectionBeat = Math.max(0, loopBeat - sectionStart);
-        const sectionProgress = sectionBeat / sectionBeats;
-        const barPhase = (loopBeat % beatsPerBar) / beatsPerBar;
-        const stage = inferDjStage(section.name);
-        const rhythm = section.rhythm || DJ_STAGE_RHYTHMS[stage] || DJ_STAGE_RHYTHMS.intro;
-        const stepPosition = sectionBeat * 4;
-        const kickPulse = pulseFromPattern(rhythm.kick, stepPosition, 0.31);
-        const snarePulse = pulseFromPattern(rhythm.snare, stepPosition, 0.3);
-        const hatPulse = pulseFromPattern(rhythm.hat, stepPosition, 0.23);
-        const bassPulse = pulseFromPattern(rhythm.bass, stepPosition, 0.34);
-        const leadPulse = pulseFromPattern(rhythm.lead, stepPosition, 0.27);
-        const beatInBar = loopBeat % beatsPerBar;
-        const downbeatPulse = Math.exp(-Math.pow(beatInBar / 0.22, 2));
-        const sectionEdge = Math.min(sectionProgress, 1 - sectionProgress);
-        const transitionPulse = Math.exp(-Math.pow(sectionEdge / 0.08, 2));
-        const transient = THREE.MathUtils.clamp(
-          kickPulse * 1.1 + snarePulse * 0.9 + hatPulse * 0.46 + bassPulse * 0.4 + leadPulse * 0.28 + downbeatPulse * 0.24,
-          0,
-          2
-        );
-
-        return {
-          track,
-          section,
-          stage,
-          sectionProgress,
-          barPhase,
-          kickPulse,
-          snarePulse,
-          hatPulse,
-          bassPulse,
-          leadPulse,
-          downbeatPulse,
-          transitionPulse,
-          transient,
-        };
-      }
-
-      function applyDjJourneyTargets(journeyFrame) {
-        if (!journeyFrame) {
-          resetDjJourneyRuntime();
-          return;
-        }
-
-        const section = journeyFrame.section;
-        const stageTuning = DJ_STAGE_BEHAVIOR[journeyFrame.stage] || DJ_STAGE_BEHAVIOR.intro;
-        const drive = THREE.MathUtils.clamp(Number(section.drive || 0.6), 0, 1);
-        const punch = THREE.MathUtils.clamp(Number(section.punch || 0.6), 0, 1);
-        const shimmer = THREE.MathUtils.clamp(Number(section.shimmer || 0.6), 0, 1);
-        const texture = THREE.MathUtils.clamp(Number(section.texture || 0.6), 0, 1);
-        const flow = THREE.MathUtils.clamp(Number(section.flow || stageTuning.flow), 0, 1);
-        const calm = THREE.MathUtils.clamp(Number(section.calm || stageTuning.calm), 0, 1);
-        const gravity = THREE.MathUtils.clamp(Number(section.gravity || stageTuning.gravity), 0, 1);
-        const rebound = THREE.MathUtils.clamp(Number(section.rebound || stageTuning.rebound), 0, 1);
-        const hue = THREE.MathUtils.clamp(Number(section.hue || 0), -0.2, 0.2) + stageTuning.color;
-        const rhythmicPush =
-          journeyFrame.kickPulse * 1 +
-          journeyFrame.snarePulse * 0.82 +
-          journeyFrame.hatPulse * 0.38 +
-          journeyFrame.bassPulse * 0.58 +
-          journeyFrame.leadPulse * 0.32 +
-          journeyFrame.transitionPulse * 0.38;
-
-        state.targetDrivers.drive = THREE.MathUtils.clamp(
-          state.targetDrivers.drive * (0.58 + drive * 0.52) + journeyFrame.kickPulse * 0.28 + journeyFrame.bassPulse * 0.2 + gravity * 0.1,
-          0,
-          1.45
-        );
-        state.targetDrivers.punch = THREE.MathUtils.clamp(
-          state.targetDrivers.punch * (0.56 + punch * 0.56) + journeyFrame.snarePulse * 0.34 + journeyFrame.kickPulse * 0.22 + journeyFrame.transitionPulse * 0.15,
-          0,
-          1.5
-        );
-        state.targetDrivers.shimmer = THREE.MathUtils.clamp(
-          state.targetDrivers.shimmer * (0.62 + shimmer * 0.48) + journeyFrame.hatPulse * 0.22 + journeyFrame.leadPulse * 0.14,
-          0,
-          1.28
-        );
-        state.targetDrivers.texture = THREE.MathUtils.clamp(
-          state.targetDrivers.texture * (0.64 + texture * 0.44) + (1 - journeyFrame.transient) * 0.1 + journeyFrame.barPhase * 0.05,
-          0,
-          1.24
-        );
-        state.targetFlow = THREE.MathUtils.clamp(
-          state.targetFlow * (0.56 + flow * 0.58) + flow * 0.08 + rhythmicPush * 0.045 + stageTuning.flow * 0.035,
-          0.01,
-          1
-        );
-        state.targetCalm = THREE.MathUtils.clamp(
-          state.targetCalm * (0.6 + calm * 0.4) - journeyFrame.kickPulse * 0.1 - journeyFrame.transitionPulse * 0.08 + (1 - flow) * 0.05,
-          0.14,
-          0.98
-        );
-        state.targetMotion = THREE.MathUtils.clamp(
-          state.targetMotion * (0.58 + flow * 0.56) + rhythmicPush * 0.05 + punch * 0.04,
-          0.03,
-          1
-        );
-        state.pulse = THREE.MathUtils.clamp(
-          Math.max(
-            state.pulse,
-            journeyFrame.kickPulse * 0.76 +
-              journeyFrame.snarePulse * 0.6 +
-              journeyFrame.hatPulse * 0.24 +
-              journeyFrame.bassPulse * 0.32 +
-              journeyFrame.transitionPulse * 0.4
-          ),
-          0,
-          1.9
-        );
-
-        djJourneyRuntime.sectionName = section.name || "section";
-        djJourneyRuntime.stage = journeyFrame.stage;
-        djJourneyRuntime.sectionProgress = journeyFrame.sectionProgress;
-        djJourneyRuntime.gravityPull = gravity * (0.3 + journeyFrame.kickPulse * 0.9 + journeyFrame.bassPulse * 0.32);
-        djJourneyRuntime.rebound = rebound * (0.28 + journeyFrame.snarePulse * 0.95 + journeyFrame.hatPulse * 0.22);
-        djJourneyRuntime.hueShift = hue + (journeyFrame.leadPulse - journeyFrame.hatPulse * 0.35) * 0.08;
-        djJourneyRuntime.flowBoost = flow * (0.34 + journeyFrame.bassPulse * 0.72 + journeyFrame.transitionPulse * 0.35);
-        djJourneyRuntime.cameraPunch = (0.18 + stageTuning.camera * 0.82) * (journeyFrame.kickPulse * 0.8 + journeyFrame.snarePulse * 0.58 + journeyFrame.transitionPulse * 0.42);
-        djJourneyRuntime.transientBoost = journeyFrame.transient * (0.38 + punch * 0.52);
-        djJourneyRuntime.kickPulse = journeyFrame.kickPulse;
-        djJourneyRuntime.snarePulse = journeyFrame.snarePulse;
-        djJourneyRuntime.hatPulse = journeyFrame.hatPulse;
-        djJourneyRuntime.bassPulse = journeyFrame.bassPulse;
-        djJourneyRuntime.leadPulse = journeyFrame.leadPulse;
-        djJourneyRuntime.laserGate = THREE.MathUtils.clamp(
-          stageTuning.laser * (0.24 + journeyFrame.hatPulse * 0.66 + journeyFrame.leadPulse * 0.3 + journeyFrame.kickPulse * 0.2),
-          0,
-          1
-        );
-        djJourneyRuntime.tunnelMorph = THREE.MathUtils.clamp(
-          stageTuning.tunnel * (0.28 + journeyFrame.kickPulse * 0.72 + journeyFrame.bassPulse * 0.6),
-          0,
-          1
-        );
       }
 
       function updateBandReadout(nowSeconds) {
@@ -2129,8 +1398,8 @@
           `Flow ${state.flow.toFixed(2)} · Calm ${state.calm.toFixed(2)} · Pulse ${state.pulse.toFixed(2)} · BPM ${Math.round(state.estimatedBpm)} · ${regimeLabel}`;
       }
 
-      function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds, featureInput = extractAudioFeatures()) {
-        const raw = featureInput;
+      function applyFeatureDrivenTargets(nowSeconds, sourceAgeSeconds) {
+        const raw = extractAudioFeatures();
         const inputLevel = raw.loudness * state.sensitivity;
         const noiseGate = THREE.MathUtils.clamp((inputLevel - 0.018) / 0.22, 0, 1);
         const loudness =
@@ -2217,7 +1486,6 @@
       function updateEnergy(nowSeconds) {
         const localSourceReady = state.mode === "local" && analyser && activeAnalysisSource === "local";
         const captureSourceReady = state.mode === "tab" && analyser && activeAnalysisSource === "capture" && !!captureStream;
-        const djPlaybackActive = state.mode === "dj" && bassSetIsPlaying;
         const localPlaybackActive =
           localSourceReady && !!audioEl.src && !audioEl.paused && !audioEl.ended && audioEl.currentTime > 0.45;
         const capturePlaybackActive = captureSourceReady;
@@ -2227,13 +1495,6 @@
         } else if (capturePlaybackActive) {
           const captureAge = Math.max(0, nowSeconds - captureStartedAt);
           applyFeatureDrivenTargets(nowSeconds, captureAge);
-        } else if (djPlaybackActive) {
-          const bassAge = Math.max(0, nowSeconds - bassSetStartedAt);
-          const strudelFeatures = extractStrudelFeatures();
-          const strudelHasSignal = strudelFeatures.loudness > 0.006 || strudelFeatures.flux > 0.002;
-          const djFeatures = strudelHasSignal ? strudelFeatures : extractDjFallbackFeatures(nowSeconds);
-          applyFeatureDrivenTargets(nowSeconds, bassAge, djFeatures);
-          applyDjJourneyTargets(getDjJourneyFrame(nowSeconds));
         } else if (state.mode === "local" && localSourceReady) {
           state.targetDrivers.drive = 0.01;
           state.targetDrivers.punch = 0.01;
@@ -2258,15 +1519,6 @@
           state.targetCalm = 0.93;
           state.targetMotion = 0.04;
           state.pulse *= 0.9;
-        } else if (state.mode === "dj") {
-          state.targetDrivers.drive = 0.02;
-          state.targetDrivers.punch = 0.02;
-          state.targetDrivers.shimmer = 0.02;
-          state.targetDrivers.texture = 0.02;
-          state.targetFlow = 0.03;
-          state.targetCalm = 0.9;
-          state.targetMotion = 0.05;
-          state.pulse *= 0.9;
         } else {
           state.targetDrivers.drive = 0.03;
           state.targetDrivers.punch = 0.03;
@@ -2276,10 +1528,6 @@
           state.targetCalm = 0.84;
           state.targetMotion = 0.08;
           state.pulse *= 0.92;
-        }
-
-        if (!djPlaybackActive) {
-          resetDjJourneyRuntime();
         }
 
         state.drivers.drive += (state.targetDrivers.drive - state.drivers.drive) * 0.08;
@@ -2319,32 +1567,6 @@
         const punch = state.drivers.punch;
         const shimmer = state.drivers.shimmer;
         const texture = state.drivers.texture;
-        const isDjLive = state.mode === "dj" && bassSetIsPlaying;
-        const djFlowBoost = isDjLive ? djJourneyRuntime.flowBoost : 0;
-        const djGravityPull = isDjLive ? djJourneyRuntime.gravityPull : 0;
-        const djRebound = isDjLive ? djJourneyRuntime.rebound : 0;
-        const djHueShift = isDjLive ? djJourneyRuntime.hueShift : 0;
-        const djCameraPunch = isDjLive ? djJourneyRuntime.cameraPunch : 0;
-        const djTransientBoost = isDjLive ? djJourneyRuntime.transientBoost : 0;
-        const djKickPulse = isDjLive ? djJourneyRuntime.kickPulse : 0;
-        const djSnarePulse = isDjLive ? djJourneyRuntime.snarePulse : 0;
-        const djHatPulse = isDjLive ? djJourneyRuntime.hatPulse : 0;
-        const djBassPulse = isDjLive ? djJourneyRuntime.bassPulse : 0;
-        const djLeadPulse = isDjLive ? djJourneyRuntime.leadPulse : 0;
-        const djLaserGate = isDjLive ? djJourneyRuntime.laserGate : 0;
-        const djTunnelMorph = isDjLive ? djJourneyRuntime.tunnelMorph : 0;
-        const djStage = isDjLive ? djJourneyRuntime.stage : "idle";
-        const djStageRender = DJ_STAGE_RENDER[djStage] || DJ_STAGE_RENDER.idle;
-        const stageSpeed = djStageRender.speed;
-        const stageSpiral = djStageRender.spiral * (0.35 + djLeadPulse * 0.65);
-        const stageCollapse = djStageRender.collapse * (0.3 + djTunnelMorph * 0.7 + djBassPulse * 0.4);
-        const stageDrop = djStageRender.drop * (0.28 + djKickPulse * 0.72);
-        const stageLift = djStageRender.lift * (0.24 + djSnarePulse * 0.76);
-        const stageJitter = djStageRender.jitter * (0.2 + djHatPulse * 0.8);
-        const stageBassWarp = djStageRender.bassWarp * (0.28 + djBassPulse * 0.72);
-        const stageCameraWeight = djStageRender.camera * (0.28 + djCameraPunch * 0.72 + djKickPulse * 0.3);
-        const stageHueShift = djStageRender.hue * (0.34 + djLeadPulse * 0.66 + djTunnelMorph * 0.2);
-        const stagePulseLift = djStageRender.pulse * (0.24 + djKickPulse * 0.76);
         const calm = state.calm;
         const driftBlend = regimeState.drift;
         const helixBlend = regimeState.helix;
@@ -2360,11 +1582,10 @@
         const calmBrake = 1 - calm * 0.68;
         const motionScale = (0.1 + (1 - calm) * 0.9) * state.motion * (0.78 + helixBlend * 0.24 + surgeBlend * 0.44);
         const fallTunnelPull = 0.92 + state.flow * 0.34 + drive * 0.22 + surgeBlend * 0.26;
-        const forwardSpeed =
-          Math.max(
+        const forwardSpeed = Math.max(
           0.12,
           (0.72 + state.flow * 5.2 + state.pulse * 3.1) * (0.44 + calmBrake * 0.56) * fallTunnelPull
-          ) * (1 + djFlowBoost * 0.3 + djBassPulse * 0.22 + stagePulseLift * 0.35) * stageSpeed;
+        );
         const speedNorm = THREE.MathUtils.clamp((forwardSpeed - 0.24) / 4.6, 0, 1);
         const calmLaserLift = THREE.MathUtils.clamp((calm - 0.42) / 0.5, 0, 1);
         const beatHz = Math.max(0.7, state.estimatedBpm / 60);
@@ -2373,41 +1594,30 @@
         const beatRing =
           lastOnsetTime > 0 ? onsetEcho * Math.pow(Math.max(0, Math.sin(beatSinceOnset * beatHz * Math.PI * 2)), 2) : 0;
         const beatEvent = THREE.MathUtils.clamp(
-          state.pulse * 0.92 +
-            beatRing * 0.66 +
-            Math.max(0, state.features.flux - dynamicFluxThreshold) * 0.45 +
-            djTransientBoost * 0.55 +
-            djKickPulse * 0.65 +
-            djSnarePulse * 0.44 +
-            djHatPulse * 0.24 +
-            stagePulseLift * 0.4,
+          state.pulse * 0.92 + beatRing * 0.66 + Math.max(0, state.features.flux - dynamicFluxThreshold) * 0.45,
           0,
-          1.9
+          1.5
         );
-        const laserPresenceFloor = isDjLive ? 0.02 : 0.2;
         const laserPresence = THREE.MathUtils.clamp(
-          (0.16 +
+          0.16 +
             calmLaserLift * 0.28 +
             punch * 0.2 +
             shimmer * 0.16 +
             speedNorm * 0.11 +
             texture * 0.05 +
-            state.pulse * 0.04) *
-            (0.22 + djLaserGate * 1.06) *
-            djStageRender.laser,
-          laserPresenceFloor,
+            state.pulse * 0.04,
+          0.2,
           0.82
         );
-        particles.rotation.x = Math.sin(t * 0.08 * motionScale) * (0.02 + texture * 0.04) - djSnarePulse * (0.012 + stageLift * 0.018);
-        particles.rotation.y = Math.sin(t * 0.1 * motionScale) * (0.03 + punch * 0.05) + djLeadPulse * (0.016 + stageSpiral * 0.022);
-        particles.rotation.z = Math.sin(t * (0.06 + stageSpiral * 0.18)) * (0.01 + stageSpiral * 0.03);
-        material.size = 0.028 + drive * 0.018 + shimmer * 0.01 + coreReaction * 0.01 + djTransientBoost * 0.007 + djTunnelMorph * 0.01;
-        material.opacity = THREE.MathUtils.clamp(0.72 + texture * 0.11 + coreReaction * 0.08 + djFlowBoost * 0.04, 0.6, 0.96);
+        particles.rotation.x = Math.sin(t * 0.08 * motionScale) * (0.02 + texture * 0.04);
+        particles.rotation.y = Math.sin(t * 0.1 * motionScale) * (0.03 + punch * 0.05);
+        material.size = 0.028 + drive * 0.018 + shimmer * 0.01 + coreReaction * 0.01;
+        material.opacity = THREE.MathUtils.clamp(0.72 + texture * 0.11 + coreReaction * 0.08, 0.6, 0.96);
         accentMaterial.size = 0.062 + morphTrigger * 0.028;
-        accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13 + djTransientBoost * 0.05, 0.7, 0.98);
-        backgroundPulseMaterial.size = 0.07 + beatEvent * 0.13 + djGravityPull * 0.03 + djKickPulse * 0.045;
+        accentMaterial.opacity = THREE.MathUtils.clamp(0.74 + morphTrigger * 0.13, 0.7, 0.98);
+        backgroundPulseMaterial.size = 0.07 + beatEvent * 0.13;
         backgroundPulseMaterial.opacity = THREE.MathUtils.clamp(0.2 + beatEvent * 0.28, 0.18, 0.68);
-        laserMaterial.opacity += (0.14 + laserPresence * 0.28 + djTransientBoost * 0.08 - laserMaterial.opacity) * 0.08;
+        laserMaterial.opacity += (0.14 + laserPresence * 0.28 - laserMaterial.opacity) * 0.08;
 
         if (morphTrigger > 0.72 && t - lastMorphSwitchTime > 0.1) {
           lastMorphSwitchTime = t;
@@ -2438,16 +1648,15 @@
           const theta0 = baseTheta[i];
           const z = depthOffset[i];
           const depthNorm = THREE.MathUtils.clamp((z + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
-          const travelPhase =
-            t * (0.22 + punch * 0.22 + surgeBlend * 0.14 + stageSpiral * 0.12) * motionScale * regimeTwist + flowSeed[i] - z * (0.04 + stageSpiral * 0.015);
+          const travelPhase = t * (0.22 + punch * 0.22 + surgeBlend * 0.14) * motionScale * regimeTwist + flowSeed[i] - z * 0.04;
           const centerX =
             Math.sin(t * 0.33 * motionScale + z * 0.028) * (0.54 + texture * 0.32) * regimeDrift +
             Math.sin(t * 0.14 * motionScale - z * 0.017 + flowSeed[i]) * (0.14 + helixBlend * 0.06) +
-            Math.sin(z * 0.018 + t * (0.11 + helixBlend * 0.09 + surgeBlend * 0.14 + stageSpiral * 0.1)) * regimeShear * 0.5;
+            Math.sin(z * 0.018 + t * (0.11 + helixBlend * 0.09 + surgeBlend * 0.14)) * regimeShear * 0.5;
           const centerY =
             Math.cos(t * 0.29 * motionScale + z * 0.031) * (0.46 + punch * 0.26) * regimeDrift +
             Math.sin(t * 0.18 * motionScale + z * 0.022 + flowSeed[i] * 0.6) * (0.12 + helixBlend * 0.06) +
-            Math.cos(z * 0.015 - t * (0.12 + helixBlend * 0.07 + surgeBlend * 0.12 + stageSpiral * 0.08)) * regimeShear * 0.5;
+            Math.cos(z * 0.015 - t * (0.12 + helixBlend * 0.07 + surgeBlend * 0.12)) * regimeShear * 0.5;
 
           // Layered field keeps motion smooth while preserving a recursive "falling tunnel" shape.
           const recursiveA = Math.sin(travelPhase + Math.sin(travelPhase * 0.47 + r0 * 1.4));
@@ -2459,32 +1668,31 @@
 
           if (group === 0) {
             // Core lane: compression/expansion, like gravitational pulls.
-            const kick = drive * Math.max(0, Math.sin(t * 3.1 * motionScale + seed * 8)) + state.pulse * 0.34 + stageDrop * 0.5;
-            theta = theta0 + t * (0.2 + punch * 0.14 + stageSpiral * 0.12) * motionScale + recursiveMix * (0.07 + shimmer * 0.04 + stageSpiral * 0.03);
-            radius = r0 * (0.8 + kick * 0.8 - stageCollapse * 0.22) + recursiveA * (0.05 + texture * 0.06);
+            const kick = drive * Math.max(0, Math.sin(t * 3.1 * motionScale + seed * 8)) + state.pulse * 0.34;
+            theta = theta0 + t * (0.2 + punch * 0.14) * motionScale + recursiveMix * (0.07 + shimmer * 0.04);
+            radius = r0 * (0.8 + kick * 0.8) + recursiveA * (0.05 + texture * 0.06);
           } else if (group === 1) {
             // Spiral lane: dominant guide rails of the journey.
-            theta = theta0 + t * (0.48 + punch * 0.68 + stageSpiral * 0.4 + djLeadPulse * 0.12) * motionScale + recursiveMix * (0.14 + punch * 0.16 + stageSpiral * 0.1);
-            radius = r0 * (1 + drive * 0.1 - stageCollapse * 0.16) + recursiveB * (0.1 + punch * 0.2 + stageBassWarp * 0.08);
+            theta = theta0 + t * (0.48 + punch * 0.68) * motionScale + recursiveMix * (0.14 + punch * 0.16);
+            radius = r0 * (1 + drive * 0.1) + recursiveB * (0.1 + punch * 0.2);
           } else if (group === 2) {
             // Spark lane: fast twirl accents that streak past.
-            theta = theta0 + t * (0.95 + shimmer * 1.65 + stageSpiral * 0.72 + stageJitter * 0.26) * motionScale + recursiveMix * (0.18 + shimmer * 0.25 + stageJitter * 0.07);
+            theta = theta0 + t * (0.95 + shimmer * 1.65) * motionScale + recursiveMix * (0.18 + shimmer * 0.25);
             radius =
               r0 +
-              recursiveA * (0.06 + shimmer * 0.22 + stageJitter * 0.08) +
-              Math.sin(t * (6.2 + stageJitter * 8) * motionScale + seed * 24 + z * 0.22) * (0.02 + shimmer * 0.09 + stageJitter * 0.04);
+              recursiveA * (0.06 + shimmer * 0.22) +
+              Math.sin(t * 6.2 * motionScale + seed * 24 + z * 0.22) * (0.02 + shimmer * 0.09);
           } else {
             // Halo lane: outer drift keeps a spacious atmosphere.
-            theta = theta0 + t * (0.3 + texture * 0.56 + stageSpiral * 0.18) * motionScale + recursiveMix * (0.11 + texture * 0.19 + stageSpiral * 0.04);
-            radius = r0 * (1 + texture * 0.18 - stageCollapse * 0.08) + recursiveB * (0.12 + texture * 0.26 + stageBassWarp * 0.06);
+            theta = theta0 + t * (0.3 + texture * 0.56) * motionScale + recursiveMix * (0.11 + texture * 0.19);
+            radius = r0 * (1 + texture * 0.18) + recursiveB * (0.12 + texture * 0.26);
           }
           theta += regimeJolt * Math.sin(t * (3.2 + group * 0.6) + seed * 9 + z * 0.028);
           radius += regimeShear * 0.035 * Math.sin(t * 0.9 + flowSeed[i] + z * 0.02);
-          radius += stageBassWarp * Math.sin(z * 0.038 + theta * 1.5 + seed * 5.6) * (group === 1 ? 0.14 : group === 2 ? 0.1 : 0.07);
 
           // Transfer former orb energy into particles: center-proximal pull/flare.
           const coreWeight = Math.exp(-r0 * 0.48);
-          radius = Math.max(0.06, radius - coreWeight * (coreReaction * 0.42 + stageCollapse * 0.34));
+          radius = Math.max(0.06, radius - coreWeight * coreReaction * 0.42);
 
           const kaleidoBase = kaleidoMix[i];
           const kaleidoAmount = THREE.MathUtils.clamp(
@@ -2507,17 +1715,8 @@
           }
 
           const twirlLift = Math.sin(theta * 2.1 + travelPhase * 0.55 + laneJitter[i] * 6.2) * (0.02 + texture * 0.06);
-          const dropMotion = djGravityPull * (0.07 + depthNorm * 0.22) * (group === 0 ? 1 : group === 1 ? 0.72 : 0.44);
-          const reboundMotion =
-            djRebound *
-            (0.04 + (1 - depthNorm) * 0.12) *
-            (group === 2 ? 1.05 : group === 3 ? 0.82 : 0.56) *
-            Math.sin(theta * 1.4 + travelPhase * 0.9 + seed * 4.8);
-          const kickDrop = stageDrop * (0.03 + depthNorm * 0.16) * (group === 0 ? 1.16 : group === 1 ? 0.84 : 0.58);
-          const snareLift = stageLift * (0.02 + (1 - depthNorm) * 0.14) * (group === 2 ? 1.08 : group === 3 ? 0.9 : 0.66);
-          const hatShake = stageJitter * (0.005 + group * 0.002) * Math.sin(t * (18 + group * 3) + seed * 24 + z * 0.11);
-          positions[idx] = centerX + Math.cos(theta) * radius + twirlLift + hatShake * 0.8;
-          positions[idx + 1] = centerY + Math.sin(theta) * radius - twirlLift * 0.7 - dropMotion + reboundMotion - kickDrop + snareLift + hatShake;
+          positions[idx] = centerX + Math.cos(theta) * radius + twirlLift;
+          positions[idx + 1] = centerY + Math.sin(theta) * radius - twirlLift * 0.7;
           positions[idx + 2] = z;
 
           const hueShift =
@@ -2529,15 +1728,7 @@
                   ? shimmer * 0.06
                   : texture * 0.05;
           const kaleidoHueShift = kaleidoAmount * 0.08 * Math.sin(t * 0.85 + z * 0.014 + kaleidoPhase[i]);
-          const hue =
-            (groupHue[group] +
-              recursiveMix * 0.018 +
-              t * 0.002 +
-              hueShift +
-              kaleidoHueShift +
-              djHueShift +
-              stageHueShift * (group === 2 ? 1.2 : group === 1 ? 0.9 : 0.7)) %
-            1;
+          const hue = (groupHue[group] + recursiveMix * 0.018 + t * 0.002 + hueShift + kaleidoHueShift) % 1;
           const saturation = Math.min(
             0.97,
             groupSaturation[group] + bandDrive * 0.2 + shimmer * 0.04 + coreReaction * 0.06 + kaleidoAmount * 0.12
@@ -2562,7 +1753,7 @@
         for (let j = 0; j < accentCount; j += 1) {
           const src = accentIndices[j] * 3;
           const dst = j * 3;
-          const drift = 0.02 + morphTrigger * 0.09 + djTransientBoost * 0.018 + stageJitter * 0.024;
+          const drift = 0.02 + morphTrigger * 0.09;
           accentPositions[dst] = positions[src] + Math.sin(t * 1.6 + j * 0.31) * drift;
           accentPositions[dst + 1] = positions[src + 1] + Math.cos(t * 1.45 + j * 0.27) * drift;
           accentPositions[dst + 2] = positions[src + 2];
@@ -2579,7 +1770,7 @@
           const depthNorm = THREE.MathUtils.clamp((zSrc + tunnelDepth) / (tunnelDepth + tunnelFront), 0, 1);
           const backWeight = 1 - depthNorm;
           const driftBreath = Math.sin(t * 0.22 + backgroundPulsePhase[j]) * 0.006;
-          const breath = 0.995 + driftBreath + beatEvent * (0.028 + backWeight * 0.12) + stagePulseLift * (0.01 + backWeight * 0.03);
+          const breath = 0.995 + driftBreath + beatEvent * (0.028 + backWeight * 0.12);
           backgroundPulsePositions[dst] = positions[src] * breath;
           backgroundPulsePositions[dst + 1] = positions[src + 1] * breath;
           backgroundPulsePositions[dst + 2] = zSrc - 0.45 - backWeight * 1.15;
@@ -2625,15 +1816,14 @@
 
           const coreDistance = Math.sqrt(x * x + y * y);
           const centerSuppress = THREE.MathUtils.clamp((coreDistance - 0.38) / 1.6, 0.2, 1);
-          const linePresenceFloor = isDjLive ? 0.02 : 0.18;
           const linePresence = THREE.MathUtils.clamp(
-            laserPresence * centerSuppress * (0.68 + 0.32 * Math.sin(t * (0.44 + stageSpiral * 0.16) + j * 0.15)),
-            linePresenceFloor,
+            laserPresence * centerSuppress * (0.68 + 0.32 * Math.sin(t * 0.44 + j * 0.15)),
+            0.18,
             0.9
           );
           const trailLen = THREE.MathUtils.clamp(
             (0.03 + laserVel[j] * 0.0035 + morphTrigger * 0.08 + state.pulse * 0.05 - calm * 0.04 + calmLaserLift * 0.03) *
-              (0.24 + linePresence * 0.6 + stageDrop * 0.2),
+              (0.24 + linePresence * 0.6),
             0.08,
             1.45
           );
@@ -2649,10 +1839,10 @@
           laserPositions[dst + 4] = y;
           laserPositions[dst + 5] = z;
 
-          const hue = (0.56 + t * 0.1 + j * 0.0014 + z * 0.0022 + shimmer * 0.12 + state.pulse * 0.06 + stageHueShift * 0.7) % 1;
+          const hue = (0.56 + t * 0.1 + j * 0.0014 + z * 0.0022 + shimmer * 0.12 + state.pulse * 0.06) % 1;
           const sat = THREE.MathUtils.clamp(0.66 + morphTrigger * 0.14 + shimmer * 0.06, 0.58, 0.9);
           const headLight = THREE.MathUtils.clamp(
-            (0.34 + morphTrigger * 0.12 + state.pulse * 0.08 + laserVel[j] * 0.0025 + stagePulseLift * 0.08) * (0.54 + linePresence * 0.78),
+            (0.34 + morphTrigger * 0.12 + state.pulse * 0.08 + laserVel[j] * 0.0025) * (0.54 + linePresence * 0.78),
             0.28,
             0.9
           );
@@ -2681,31 +1871,18 @@
         laserPositionAttr.needsUpdate = true;
         laserColorAttr.needsUpdate = true;
 
-        const cameraDrift = t * (0.08 + helixBlend * 0.05 + surgeBlend * 0.08 + stageSpiral * 0.04) * motionScale;
+        const cameraDrift = t * (0.08 + helixBlend * 0.05 + surgeBlend * 0.08) * motionScale;
         camera.position.x =
           Math.sin(cameraDrift) * (0.2 + texture * 0.15 + regimeShear * 0.12) +
-          Math.sin(t * 0.33 * motionScale) * (0.22 + texture * 0.13 + surgeBlend * 0.08) +
-          Math.sin(t * (0.8 + stageSpiral * 0.6) + djLeadPulse * 4.5) * (0.05 + stageCameraWeight * 0.36);
+          Math.sin(t * 0.33 * motionScale) * (0.22 + texture * 0.13 + surgeBlend * 0.08);
         camera.position.y =
           Math.cos(cameraDrift * 0.9) * (0.14 + punch * 0.1 + regimeShear * 0.08) +
-          Math.cos(t * 0.29 * motionScale) * (0.18 + punch * 0.09 + helixBlend * 0.05) +
-          Math.cos(t * (0.74 + stageLift * 0.42) + djKickPulse * 2.8) * (0.03 + stageCameraWeight * 0.24);
-        camera.position.z =
-          4.12 +
-          Math.sin(t * 0.52 * motionScale) * (0.08 + drive * 0.07) -
-          surgeBlend * (0.12 + state.pulse * 0.12) -
-          djCameraPunch * 0.22 -
-          stageCameraWeight * (0.04 + stageDrop * 0.2);
+          Math.cos(t * 0.29 * motionScale) * (0.18 + punch * 0.09 + helixBlend * 0.05);
+        camera.position.z = 4.12 + Math.sin(t * 0.52 * motionScale) * (0.08 + drive * 0.07) - surgeBlend * (0.12 + state.pulse * 0.12);
         camera.lookAt(
-          Math.sin(t * (0.31 + stageSpiral * 0.12) * motionScale - 0.5) * (0.34 + texture * 0.2 + regimeShear * 0.12 + stageCameraWeight * 0.22),
-          Math.cos(t * (0.27 + stageLift * 0.1) * motionScale - 0.3) * (0.28 + punch * 0.12 + regimeShear * 0.08 + stageCameraWeight * 0.16),
-          -36 -
-            state.flow * 8 -
-            state.pulse * 4 -
-            helixBlend * 2.4 -
-            surgeBlend * 5.6 -
-            djCameraPunch * 3.4 -
-            stageCameraWeight * (2 + stageDrop * 6)
+          Math.sin(t * 0.31 * motionScale - 0.5) * (0.34 + texture * 0.2 + regimeShear * 0.12),
+          Math.cos(t * 0.27 * motionScale - 0.3) * (0.28 + punch * 0.12 + regimeShear * 0.08),
+          -36 - state.flow * 8 - state.pulse * 4 - helixBlend * 2.4 - surgeBlend * 5.6
         );
 
         renderer.render(scene, camera);
@@ -2769,37 +1946,6 @@
       stopCaptureBtn.addEventListener("click", () => {
         stopTabCapture("Tab audio capture stopped.");
       });
-
-      if (playBassSetBtn) {
-        playBassSetBtn.addEventListener("click", async () => {
-          if (state.mode !== "dj") {
-            modeEl.value = "dj";
-            applyMode("dj");
-          }
-          await playBassTrackByIndex(bassTrackIndex, true);
-        });
-      }
-
-      if (nextBassTrackBtn) {
-        nextBassTrackBtn.addEventListener("click", async () => {
-          if (state.mode !== "dj") {
-            modeEl.value = "dj";
-            applyMode("dj");
-          }
-          await playBassTrackByIndex(bassTrackIndex + 1, true);
-        });
-      }
-
-      if (stopBassSetBtn) {
-        stopBassSetBtn.addEventListener("click", () => {
-          if (typeof window.hush === "function") {
-            window.hush();
-          }
-          bassSetIsPlaying = false;
-          resetDjJourneyRuntime();
-          setStatus("Bass & Brackets paused.");
-        });
-      }
 
       audioFileEl.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
@@ -2922,14 +2068,6 @@
       setCaptureStatus("Tab capture is off.");
       updateCaptureIndicators("off");
       syncHudDockFromPointer();
-      window.__orbitBloomDebug = () => ({
-        mode: state.mode,
-        bassSetIsPlaying,
-        activeAnalysisSource,
-        features: { ...state.features },
-        drivers: { ...state.drivers },
-        journey: { ...djJourneyRuntime },
-      });
       requestAnimationFrame(animate);
     </script>
   </body>

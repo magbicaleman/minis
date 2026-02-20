@@ -19,3 +19,6 @@ com.apple.timemachine.donotpresent
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Local upstream clone used for Strudel documentation study
+strudel-upstream/
