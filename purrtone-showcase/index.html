@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PurrTone Studio Showcase</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand-lockup" href="#slide-1" aria-label="PurrTone showcase home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>
+            <strong>PurrTone</strong>
+            <small>AI design showcase</small>
+          </span>
+        </a>
+        <div class="progress" aria-hidden="true"><span id="progressFill"></span></div>
+        <button class="icon-button" id="overviewButton" type="button" title="Toggle overview" aria-label="Toggle overview">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" />
+          </svg>
+        </button>
+      </header>
+
+      <nav class="slide-rail" aria-label="Showcase slides">
+        <button class="rail-item is-active" type="button" data-goto="0"><span>01</span><b>Opening</b></button>
+        <button class="rail-item" type="button" data-goto="1"><span>02</span><b>Logo Prompt</b></button>
+        <button class="rail-item" type="button" data-goto="2"><span>03</span><b>Logo Grid</b></button>
+        <button class="rail-item" type="button" data-goto="3"><span>04</span><b>Web Prompt</b></button>
+        <button class="rail-item" type="button" data-goto="4"><span>05</span><b>Landing Page</b></button>
+        <button class="rail-item" type="button" data-goto="5"><span>06</span><b>Ad Prompt</b></button>
+        <button class="rail-item" type="button" data-goto="6"><span>07</span><b>Ad Results</b></button>
+        <button class="rail-item" type="button" data-goto="7"><span>08</span><b>Takeaway</b></button>
+      </nav>
+
+      <main class="deck" id="deck">
+        <section class="slide cover-slide is-active" data-title="Opening">
+          <div class="copy-block">
+            <p class="eyebrow">Prompt-to-campaign walkthrough</p>
+            <h1>How a kitten icon prompt became PurrTone Studio.</h1>
+            <p class="lede">
+              A slideable showcase of the prompt sequence: icon exploration, landing page direction,
+              and campaign-style ad concepts.
+            </p>
+            <div class="metric-row" aria-label="Showcase summary">
+              <span><b>3</b> prompt moves</span>
+              <span><b>4</b> generated assets</span>
+              <span><b>1</b> brand concept</span>
+            </div>
+          </div>
+          <figure class="image-card hero-composite">
+            <img
+              src="./assets/ChatGPT Image Apr 21, 2026, 07_56_14 PM.png"
+              alt="Generated PurrTone Studio landing page"
+            />
+          </figure>
+        </section>
+
+        <section class="slide split-slide" data-title="Logo Prompt">
+          <div class="copy-block">
+            <p class="eyebrow">Prompt 01</p>
+            <h2>Start by asking for a system, not a single logo.</h2>
+            <div class="prompt-card">
+              <span>Original prompt</span>
+              <p>
+                Transform this image into a grid of minimalist logos using the main subject as the
+                core icon. Abstract and simplify the primary element into multiple unique
+                vector-style logo marks.
+              </p>
+              <p>
+                Each variation should reinterpret the same subject in different ways: geometric,
+                line art, negative space, emblem, badge, monogram. Arrange 16-20 logos evenly on a
+                light background.
+              </p>
+            </div>
+            <div class="reply-pill">Follow-up: “Let’s use a kitten as the source inspiration.”</div>
+          </div>
+          <figure class="image-card framed-image">
+            <img
+              src="./assets/ChatGPT Image Apr 21, 2026, 07_56_18 PM.png"
+              alt="Generated grid of minimalist kitten logos"
+            />
+            <figcaption>Result preview: a broad logo exploration instead of one locked direction.</figcaption>
+          </figure>
+        </section>
+
+        <section class="slide gallery-slide" data-title="Logo Grid">
+          <div class="section-heading">
+            <p class="eyebrow">Result 01</p>
+            <h2>The icon grid created usable brand DNA.</h2>
+          </div>
+          <div class="gallery-layout">
+            <figure class="image-card asset-focus logo-asset">
+              <img
+                src="./assets/ChatGPT Image Apr 21, 2026, 07_56_18 PM.png"
+                alt="Full generated logo grid for kitten icon concepts"
+              />
+            </figure>
+            <aside class="takeaway">
+              <span class="status-chip">Why it worked</span>
+              <h3>It produced options with a shared visual language.</h3>
+              <p>
+                The output had enough range to choose from: solid marks, line icons, badges,
+                negative-space cats, and simple face symbols. One of those marks became the anchor
+                for the next prompt.
+              </p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="slide split-slide" data-title="Web Prompt">
+          <div class="copy-block">
+            <p class="eyebrow">Prompt 02</p>
+            <h2>Use the logo result as context for a landing page.</h2>
+            <div class="prompt-card large">
+              <span>Follow-up prompt</span>
+              <p>
+                “Can you design a landing page for a cat recording studio and pick one of icons you
+                created, let’s make the main colors yellow, and accent black, give it space, and give
+                it life.”
+              </p>
+            </div>
+            <div class="token-row" aria-label="Design direction">
+              <span style="--swatch:#f7bd00">Yellow lead</span>
+              <span style="--swatch:#090909">Black accent</span>
+              <span style="--swatch:#fffaf0">Open space</span>
+              <span style="--swatch:#2b2922">Studio warmth</span>
+            </div>
+          </div>
+          <figure class="image-card framed-image landing-peek">
+            <img
+              src="./assets/ChatGPT Image Apr 21, 2026, 07_56_14 PM.png"
+              alt="Generated PurrTone landing page"
+            />
+            <figcaption>The prompt turns a logo exploration into a complete homepage direction.</figcaption>
+          </figure>
+        </section>
+
+        <section class="slide gallery-slide" data-title="Landing Page">
+          <div class="section-heading">
+            <p class="eyebrow">Result 02</p>
+            <h2>PurrTone becomes a believable studio brand.</h2>
+          </div>
+          <div class="gallery-layout wide">
+            <figure class="image-card asset-focus web-asset">
+              <img
+                src="./assets/ChatGPT Image Apr 21, 2026, 07_56_14 PM.png"
+                alt="Full generated PurrTone Studio homepage design"
+              />
+            </figure>
+            <aside class="annotation-stack">
+              <article>
+                <span>01</span>
+                <h3>Logo selected</h3>
+                <p>The cat mark moves into the navigation, CTA, service cards, and footer.</p>
+              </article>
+              <article>
+                <span>02</span>
+                <h3>Color becomes structure</h3>
+                <p>Yellow is not just decoration. It organizes buttons, icons, bands, and sound lines.</p>
+              </article>
+              <article>
+                <span>03</span>
+                <h3>The concept gets specific</h3>
+                <p>Recording gear, service categories, studio interiors, and cat details make it feel real.</p>
+              </article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="slide split-slide dark-slide" data-title="Ad Prompt">
+          <div class="copy-block">
+            <p class="eyebrow">Prompt 03</p>
+            <h2>The typo that drove itself into the campaign.</h2>
+            <div class="prompt-card dark">
+              <span>Follow-up prompt</span>
+              <p>
+                “Can you now make a magazine add with a photorealist ad for PurrTone that’s
+                emotional maybe hybrid of a real image of a car with anime eyes or something like
+                that.”
+              </p>
+            </div>
+            <div class="typo-callout">
+              <span>Cat brand, car prompt</span>
+              <p>
+                I meant <b>cat</b>. I typed <b>car</b>. The model did exactly what I asked and put a
+                moody black car in the ad. Prompt typo, premium parking spot.
+              </p>
+            </div>
+            <p class="lede compact">
+              The funny part is that it still followed the brand direction: black and yellow,
+              studio signage, emotional headline, soundwave energy, and the PurrTone mark.
+            </p>
+          </div>
+          <figure class="image-card ad-preview">
+            <img
+              src="./assets/ChatGPT Image Apr 21, 2026, 08_24_58 PM.png"
+              alt="Generated PurrTone magazine ad with black car and glowing yellow accents"
+            />
+            <figcaption>Literal prompt-following: the requested car became the hero visual.</figcaption>
+          </figure>
+        </section>
+
+        <section class="slide gallery-slide dark-gallery" data-title="Ad Results">
+          <div class="section-heading">
+            <p class="eyebrow">Result 03</p>
+            <h2>The fix: change one letter, change the whole hero.</h2>
+          </div>
+          <div class="correction-strip" aria-label="Prompt correction from car to cat">
+            <div>
+              <span>Original typo</span>
+              <b>car</b>
+              <p>The model followed the prompt literally and built the ad around a black car.</p>
+            </div>
+            <svg viewBox="0 0 80 24" aria-hidden="true">
+              <path d="M4 12h62M56 4l12 8-12 8" />
+            </svg>
+            <div>
+              <span>Corrected intent</span>
+              <b>cat</b>
+              <p>The fixed direction brings the hero back to PurrTone’s original cat-led brand idea.</p>
+            </div>
+          </div>
+          <div class="ad-grid">
+            <figure class="image-card ad-card">
+              <img
+                src="./assets/ChatGPT Image Apr 21, 2026, 08_24_58 PM.png"
+                alt="Generated PurrTone car magazine ad"
+              />
+              <figcaption>Before: “car” gives the campaign a glossy automotive hero.</figcaption>
+            </figure>
+            <figure class="image-card ad-card">
+              <img
+                src="./assets/ChatGPT Image Apr 21, 2026, 08_24_55 PM.png"
+                alt="Generated PurrTone cat magazine ad"
+              />
+              <figcaption>After: “cat” restores the emotional PurrTone mascot.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="slide wrap-slide" data-title="Takeaway">
+          <div class="section-heading">
+            <p class="eyebrow">Showcase close</p>
+            <h2>The strongest move was carrying context forward.</h2>
+          </div>
+          <div class="timeline">
+            <article>
+              <span>01</span>
+              <h3>Explore</h3>
+              <p>The first prompt generated a flexible logo set instead of one isolated output.</p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>Apply</h3>
+              <p>The selected visual language became a landing page with services, voice, and polish.</p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>Extend</h3>
+              <p>The same brand stretched into a darker campaign concept without losing its identity.</p>
+            </article>
+          </div>
+          <div class="closing-card">
+            <h3>Prompting becomes design direction when each result becomes the brief for the next step.</h3>
+            <figure>
+              <img
+                src="./assets/ChatGPT Image Apr 21, 2026, 07_56_18 PM.png"
+                alt="Small preview of generated kitten logo grid"
+              />
+            </figure>
+          </div>
+        </section>
+      </main>
+
+      <footer class="controls" aria-label="Slide controls">
+        <button class="control-button" id="prevButton" type="button" title="Previous slide" aria-label="Previous slide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.7 5.3 9 12l6.7 6.7-1.4 1.4L6.2 12l8.1-8.1 1.4 1.4Z" /></svg>
+        </button>
+        <span id="slideCounter">01 / 08</span>
+        <button class="control-button primary" id="nextButton" type="button" title="Next slide" aria-label="Next slide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.3 18.7 6.7-6.7-6.7-6.7 1.4-1.4 8.1 8.1-8.1 8.1-1.4-1.4Z" /></svg>
+        </button>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
