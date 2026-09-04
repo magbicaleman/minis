@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#07080b">
+    <meta name="description" content="An interactive study of silver marble and refracted, iridescent light.">
+    <title>Holographic Marble · Minis</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='12' y='4' width='40' height='56' rx='8' fill='%2382eaff'/%3E%3Cpath d='M12 42Q52 8 32 60' fill='%23b796ff'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./marble.js" defer></script>
+</head>
+<body>
+    <main class="showcase">
+        <div class="ambient ambient--cyan" aria-hidden="true"></div>
+        <div class="ambient ambient--violet" aria-hidden="true"></div>
+
+        <header class="intro">
+            <span class="eyebrow">Material study · 001</span>
+            <h1>Holographic marble</h1>
+        </header>
+
+        <section class="card-stage" aria-label="Interactive holographic artwork">
+            <div class="card-perspective">
+                <div class="holo-card" role="img" tabindex="0"
+                     aria-label="Interactive silver and iridescent marble card"
+                     aria-describedby="card-instructions keyboard-instructions">
+                    <div class="holo-card__base" aria-hidden="true"></div>
+                    <canvas class="holo-card__canvas" aria-hidden="true"></canvas>
+                    <div class="holo-card__sheen" aria-hidden="true"></div>
+                    <div class="holo-card__edge" aria-hidden="true"></div>
+                </div>
+
+                <div class="intensity-control">
+                    <div class="intensity-control__header">
+                        <label for="intensity">Holographic intensity</label>
+                        <output id="intensity-value" for="intensity">35%</output>
+                    </div>
+                    <input class="intensity-slider" id="intensity" type="range"
+                           min="0" max="100" step="1" value="35" aria-valuetext="35 percent">
+                </div>
+            </div>
+        </section>
+
+        <p class="hint" id="card-instructions">Move your pointer or use the arrow keys to refract the light.</p>
+        <p class="sr-only" id="keyboard-instructions">Focus the card to use the arrow keys. Press Home to center the light, or Space to pause or resume the idle animation.</p>
+        <span class="sr-only" id="motion-status" role="status"></span>
+    </main>
+</body>
+</html>
