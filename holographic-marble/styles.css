@@ -112,7 +112,8 @@ body {
     transform-style: preserve-3d;
     will-change: transform;
     overflow: hidden;
-    touch-action: pan-y;
+    /* Keep touch drags on the artwork; the surrounding page can still scroll. */
+    touch-action: none;
     cursor: crosshair;
     outline: none;
 }
