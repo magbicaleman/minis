@@ -1,0 +1,280 @@
+{
+  "source": "Codex event_msg/token_count cumulative total_token_usage counters",
+  "method": "Subtract the counter before each selected task_started from the counter at its matching task_complete. Sum separate main/subagent deltas once. Ignore duplicate snapshots and copied ancestor task markers.",
+  "invariants": [
+    "Every nonduplicate counter increment equals last_token_usage in the same session.",
+    "Total equals input plus output.",
+    "Cached input is included within input.",
+    "Reasoning output is included within output.",
+    "All selected subagent turns finish inside the parent first-run interval."
+  ],
+  "records": [
+    {
+      "threadId": "01a06f00-2b17-7c43-9baf-689fe45899ea",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 585859,
+        "cached_input_tokens": 549376,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4183,
+        "reasoning_output_tokens": 126,
+        "total_tokens": 590042,
+        "uncached_input_tokens": 36483
+      },
+      "mainRun": {
+        "input_tokens": 585859,
+        "cached_input_tokens": 549376,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 4183,
+        "reasoning_output_tokens": 126,
+        "total_tokens": 590042
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f00-2b17-7c43-9baf-689fe45899ea",
+          "turnIds": [
+            "01a06f00-a897-7df3-90df-798c572eb63d"
+          ],
+          "usage": {
+            "input_tokens": 585859,
+            "cached_input_tokens": 549376,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4183,
+            "reasoning_output_tokens": 126,
+            "total_tokens": 590042
+          }
+        }
+      ]
+    },
+    {
+      "threadId": "01a06f05-6b0e-7d62-8fa4-2c9f1e5cee43",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 411509,
+        "cached_input_tokens": 353792,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3485,
+        "reasoning_output_tokens": 157,
+        "total_tokens": 414994,
+        "uncached_input_tokens": 57717
+      },
+      "mainRun": {
+        "input_tokens": 411509,
+        "cached_input_tokens": 353792,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 3485,
+        "reasoning_output_tokens": 157,
+        "total_tokens": 414994
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f05-6b0e-7d62-8fa4-2c9f1e5cee43",
+          "turnIds": [
+            "01a06f05-8f88-71a3-a178-597dc1524472"
+          ],
+          "usage": {
+            "input_tokens": 411509,
+            "cached_input_tokens": 353792,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3485,
+            "reasoning_output_tokens": 157,
+            "total_tokens": 414994
+          }
+        }
+      ]
+    },
+    {
+      "threadId": "01a06f07-8b38-7093-a405-76fb9bb6e8fe",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 644244,
+        "cached_input_tokens": 585600,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 9337,
+        "reasoning_output_tokens": 1681,
+        "total_tokens": 653581,
+        "uncached_input_tokens": 58644
+      },
+      "mainRun": {
+        "input_tokens": 644244,
+        "cached_input_tokens": 585600,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 9337,
+        "reasoning_output_tokens": 1681,
+        "total_tokens": 653581
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f07-8b38-7093-a405-76fb9bb6e8fe",
+          "turnIds": [
+            "01a06f07-8f0c-7133-b0ad-8b7efc4a0919"
+          ],
+          "usage": {
+            "input_tokens": 644244,
+            "cached_input_tokens": 585600,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9337,
+            "reasoning_output_tokens": 1681,
+            "total_tokens": 653581
+          }
+        }
+      ]
+    },
+    {
+      "threadId": "01a06f08-43d0-7eb2-ae2f-2ea7c7f29215",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 3038200,
+        "cached_input_tokens": 2944640,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 17519,
+        "reasoning_output_tokens": 3971,
+        "total_tokens": 3055719,
+        "uncached_input_tokens": 93560
+      },
+      "mainRun": {
+        "input_tokens": 3038200,
+        "cached_input_tokens": 2944640,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 17519,
+        "reasoning_output_tokens": 3971,
+        "total_tokens": 3055719
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f08-43d0-7eb2-ae2f-2ea7c7f29215",
+          "turnIds": [
+            "01a06f08-488f-76c3-9d40-63d5c0c0c5f8"
+          ],
+          "usage": {
+            "input_tokens": 3038200,
+            "cached_input_tokens": 2944640,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 17519,
+            "reasoning_output_tokens": 3971,
+            "total_tokens": 3055719
+          }
+        }
+      ]
+    },
+    {
+      "threadId": "01a06f08-afaf-7041-85c9-c6622a9a007a",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 2907174,
+        "cached_input_tokens": 2812416,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 22250,
+        "reasoning_output_tokens": 9369,
+        "total_tokens": 2929424,
+        "uncached_input_tokens": 94758
+      },
+      "mainRun": {
+        "input_tokens": 2907174,
+        "cached_input_tokens": 2812416,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 22250,
+        "reasoning_output_tokens": 9369,
+        "total_tokens": 2929424
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f08-afaf-7041-85c9-c6622a9a007a",
+          "turnIds": [
+            "01a06f08-b450-73c2-88e9-826abc5fce8c"
+          ],
+          "usage": {
+            "input_tokens": 2907174,
+            "cached_input_tokens": 2812416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 22250,
+            "reasoning_output_tokens": 9369,
+            "total_tokens": 2929424
+          }
+        }
+      ]
+    },
+    {
+      "threadId": "01a06f09-194a-77b0-850f-d7be5fe61ae5",
+      "scope": "First implementation turn plus its subagent work; excludes later user follow-ups and this review.",
+      "totals": {
+        "input_tokens": 3914207,
+        "cached_input_tokens": 3757184,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 22624,
+        "reasoning_output_tokens": 5731,
+        "total_tokens": 3936831,
+        "uncached_input_tokens": 157023
+      },
+      "mainRun": {
+        "input_tokens": 2944128,
+        "cached_input_tokens": 2855424,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 15281,
+        "reasoning_output_tokens": 3780,
+        "total_tokens": 2959409
+      },
+      "components": [
+        {
+          "label": "Main run",
+          "role": "main",
+          "threadId": "01a06f09-194a-77b0-850f-d7be5fe61ae5",
+          "turnIds": [
+            "01a06f09-1cfd-7dc1-9686-abca5bdc2b3e"
+          ],
+          "usage": {
+            "input_tokens": 2944128,
+            "cached_input_tokens": 2855424,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 15281,
+            "reasoning_output_tokens": 3780,
+            "total_tokens": 2959409
+          }
+        },
+        {
+          "label": "Motion evidence subagent (two turns)",
+          "role": "subagent",
+          "threadId": "01a06f09-cd57-7492-a918-52fa2b8d34bb",
+          "turnIds": [
+            "01a06f09-cdeb-7ac0-9efb-df1c374f841d",
+            "01a06f0f-d714-7863-a931-4cbe7f735178"
+          ],
+          "usage": {
+            "input_tokens": 763999,
+            "cached_input_tokens": 703744,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4285,
+            "reasoning_output_tokens": 1285,
+            "total_tokens": 768284
+          }
+        },
+        {
+          "label": "Fingerprint texture subagent",
+          "role": "subagent",
+          "threadId": "01a06f0a-d964-7111-a1c2-663fae811791",
+          "turnIds": [
+            "01a06f0a-d9b3-7aa0-a92f-e0e2c95ce5a5"
+          ],
+          "usage": {
+            "input_tokens": 206080,
+            "cached_input_tokens": 198016,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3058,
+            "reasoning_output_tokens": 666,
+            "total_tokens": 209138
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Take action — tactile button</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; color: #61586e; background: #f5f2f8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 240px; }
+  button, input, select { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  main { min-height: 100svh; display: flex; flex-direction: column; }
+  .stage { flex: 1; min-height: 300px; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; overflow: hidden; position: relative; }
+  .scene { width: min(100vw, 1048px); aspect-ratio: 1048 / 775; position: relative; container-type: inline-size; }
+  .button-position { position: absolute; width: 35.12%; height: 16.65%; left: 32.34%; top: 42.96%; }
+  .action { --travel: 0px; --scale: 1; --shadow-y: 12px; --shadow-blur: 13px; appearance: none; display: block; position: relative; width: 100%; height: 100%; border: 0; padding: 0; border-radius: 2.6cqw; background: transparent; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; outline-offset: 9px; }
+  .action:focus-visible { outline: 2px solid #7134d3; }
+  .base { position: absolute; inset: 55% 0 0; border-radius: 0 0 2.6cqw 2.6cqw; background: linear-gradient(#7834d7 40%, #6723c6 75%, #5920b0 100%); box-shadow: 0 var(--shadow-y) var(--shadow-blur) rgba(69, 37, 110, .19), 0 2px 3px rgba(69, 24, 122, .12); transform: scaleX(var(--scale)); }
+  .face { position: absolute; inset: 0 0 9.2%; border-radius: 2.6cqw; transform: translateY(var(--travel)) scaleX(var(--scale)); overflow: hidden; isolation: isolate; background: linear-gradient(180deg, #9558fb 0%, #8848f4 28%, #803cf1 69%, #7935ee 86%, #8749f4 100%); box-shadow: inset 0 1px 2px rgba(255,255,255,.72), inset 0 -2px 1px rgba(230,205,255,.82), inset 2px 0 5px rgba(220,185,255,.51), inset -2px 0 5px rgba(220,185,255,.46); }
+  .face::before { content: ""; position: absolute; z-index: 2; pointer-events: none; inset: 1px; border: 1.5px solid rgba(225,200,255,.4); border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,.13), transparent 18%, transparent 81%, rgba(238,219,255,.09)); box-shadow: inset 0 5px 8px rgba(221,180,255,.15), inset 0 -5px 8px rgba(239,211,255,.17); }
+  .face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2; box-shadow: inset 0 0 10px rgba(222,195,255,.20), inset 0 0 2px rgba(255,255,255,.32); }
+  #prints { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
+  .label { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding-top: .15cqw; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; font-size: 4.22cqw; font-weight: 500; letter-spacing: -.065cqw; line-height: 1; color: #fff; text-shadow: 0 1px 1px rgba(69,24,117,.18); }
+  .cursor { width: 1.65cqw; height: 2.3cqw; position: absolute; z-index: 5; pointer-events: none; filter: drop-shadow(0 1px 1px #38234b55); transform: translate(-3px,-2px); }
+  .cursor[hidden] { display: none; }
+  .cursor svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  footer { flex: none; width: min(640px, calc(100% - 48px)); margin: 0 auto; padding: 6px 0 27px; }
+  .hint { text-align: center; margin: 0 0 24px; font-size: 12px; letter-spacing: .015em; color: #877d95; min-height: 16px; }
+  .controls { display: flex; gap: 7px; align-items: center; }
+  .tool { border: 1px solid transparent; background: transparent; color: #746b82; min-height: 36px; min-width: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+  .tool:hover { background: #eae4f2; color: #4e376c; }
+  .tool:focus-visible, input:focus-visible { outline: 2px solid #9764df; outline-offset: 3px; }
+  .tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  #toggle { width: 36px; }
+  #toggle .pause-icon { display: none; }
+  #toggle[data-playing="true"] .pause-icon { display: block; }
+  #toggle[data-playing="true"] .play-icon { display: none; }
+  .timeline { flex: 1; min-width: 40px; appearance: none; height: 3px; border-radius: 3px; background: linear-gradient(to right, #a587d3 var(--progress, 0%), #dfd7e9 var(--progress, 0%)); cursor: pointer; }
+  .timeline::-webkit-slider-thumb { appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #a587d3; }
+  .timeline::-moz-range-thumb { width: 10px; height: 10px; border: 0; border-radius: 50%; background: #a587d3; }
+  .time { font-variant-numeric: tabular-nums; font-size: 11px; color: #94879f; min-width: 58px; text-align: center; }
+  .divider { width: 1px; height: 16px; background: #ded6e7; margin: 0 3px; }
+  #speed { appearance: none; text-align: center; }
+  @media (max-width: 520px) {
+    .scene { width: 145vw; max-width: none; flex: none; }
+    footer { width: calc(100% - 28px); padding-bottom: 22px; }
+    .controls { gap: 3px; }
+    .hint { margin-bottom: 15px; }
+    .word { display: none; }
+    .time { min-width: 45px; font-size: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cursor { display: none; } }
+  @media (max-width: 340px) { .time { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="stage" aria-label="Interactive animation of a glass button that collects fingerprints">
+    <div class="scene">
+      <div class="button-position">
+        <button class="action" id="action" aria-label="take action" aria-describedby="hint">
+          <span class="base" aria-hidden="true"></span>
+          <span class="face"><canvas id="prints" aria-hidden="true"></canvas><span class="label">take action</span></span>
+        </button>
+      </div>
+      <div class="cursor" id="cursor" aria-hidden="true" hidden>
+        <svg viewBox="0 0 18 24"><path d="M5.5 12V3.6c0-2.4 3-2.4 3 0v6.1c.5-1.9 3-1.3 3 .3 1-1.4 3-.6 2.9 1.1 1.5-.5 2.6.3 2.6 1.7v4.5c-.1 3.9-2.4 5.7-5.6 5.7-2.8 0-4.5-1.4-5.7-3.5L2 13.8c-1.2-1.9 1-3.4 2.3-1.9l1.2 1.4Z" fill="white" stroke="#5a5063" stroke-width="1.2"/></svg>
+      </div>
+    </div>
+  </section>
+  <footer>
+    <p class="hint" id="hint">Click the button. Leave a little trace.</p>
+    <div class="controls" aria-label="Animation controls">
+      <button class="tool" id="toggle" aria-label="Pause animation" data-playing="true" title="Play or pause">
+        <svg class="play-icon" viewBox="0 0 16 16"><path d="m5 3 8 5-8 5Z"/></svg>
+        <svg class="pause-icon" viewBox="0 0 16 16"><path d="M5 3v10M11 3v10"/></svg>
+      </button>
+      <button class="tool" id="replay" aria-label="Replay reference sequence" title="Replay reference sequence"><svg viewBox="0 0 16 16"><path d="M3 6a5 5 0 1 1 0 5M3 2v4h4"/></svg><span class="word">Replay</span></button>
+      <input class="timeline" id="timeline" type="range" min="0" max="8.04" step="0.01" value="0" aria-label="Animation time">
+      <output class="time" id="time">0.0 / 8.0</output>
+      <select class="tool" id="speed" aria-label="Playback speed" title="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+      <span class="divider" aria-hidden="true"></span>
+      <button class="tool" id="clear" title="Clear fingerprints">Clear</button>
+    </div>
+  </footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const action = $('action'), face = action.querySelector('.face'), canvas = $('prints');
+  const ctx = canvas.getContext('2d'), cursor = $('cursor'), timeline = $('timeline');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const WIDTH = 368, HEIGHT = 116, DURATION = 8.04;
+  const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+  const smooth = v => (v = clamp(v), v * v * (3 - 2 * v));
+
+  // Capture times are offset by the logged 0.26 s media start. These are
+  // estimates from the supplied images, not timings extracted from the source.
+  const presses = [
+    { down: 1.18, up: 1.43, x: 66, y: 67, angle: -29, strength: .32, seed: 1 },
+    { down: 1.79, up: 1.99, x: 305, y: 67, angle: 29, strength: .41, seed: 2 },
+    { down: 2.35, up: 2.53, x: 76, y: 66, angle: -29, strength: .71, seed: 3 },
+    { down: 2.90, up: 3.10, x: 174, y: 48, angle: -12, strength: .12, seed: 4 },
+    { down: 3.35, up: 3.67, x: 32, y: 22, angle: -36, strength: .50, seed: 5 },
+    { down: 4.03, up: 4.72, x: 62, y: 75, angle: -22, strength: .33, seed: 6 },
+    { down: 4.95, up: 5.11, x: 168, y: 66, angle: 27, strength: .64, seed: 7 },
+    { down: 5.26, up: 5.41, x: 300, y: 63, angle: 30, strength: .24, seed: 8 },
+    { down: 5.68, up: 5.87, x: 137, y: 56, angle: -22, strength: .35, seed: 9 },
+    { down: 6.28, up: 6.46, x: 128, y: 40, angle: -17, strength: .29, seed: 10 },
+    { down: 6.82, up: 7.00, x: 36, y: 59, angle: -24, strength: .27, seed: 11 },
+    { down: 7.87, up: 8.01, x: 262, y: 48, angle: 31, strength: .24, seed: 12 }
+  ];
+  // Cursor locations are drawn from the images. The event log only describes
+  // the outer webpage pointer and cannot replay the pointer inside the video.
+  const pointerPath = [
+    [0,114,82],[.48,90,81],[.98,66,67],[1.43,66,67],
+    [1.66,305,67],[1.99,305,67],[2.22,76,66],[2.55,76,66],
+    [2.76,174,48],[3.10,174,48],[3.28,32,22],[3.73,32,22],
+    [3.91,62,75],[4.75,62,75],[4.92,168,66],[5.11,168,66],
+    [5.25,300,63],[5.41,300,63],[5.66,137,56],[5.88,137,56],
+    [6.03,132,-18],[6.16,132,-18],[6.26,128,40],[6.48,128,40],
+    [6.68,36,59],[7.05,36,59],[7.27,332,-20],[7.64,220,65],[8.04,262,48]
+  ];
+  let playing = !reduceMotion.matches, mode = 'replay', time = 0, rate = 1;
+  let liveTime = 0, livePrints = [], held = null, pressLevel = 0, velocity = 0;
+  let lastFrame = 0, raf = 0, seed = 18, widthScale = 1;
+  const textures = [];
+
+  function randomFor(n) { return () => { n |= 0; n = n + 0x6D2B79F5 | 0; let t = Math.imul(n ^ n >>> 15, 1 | n); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // Entirely procedural, fictional fingerprint ridges; no fingerprint assets,
+  // source frames, fonts, libraries, or network requests are used by this page.
+  function makeFingerprint(n) {
+    const random = randomFor(8827 + n * 913);
+    const size = 256, texture = document.createElement('canvas');
+    texture.width = texture.height = size;
+    const c = texture.getContext('2d'), data = c.createImageData(size, size);
+    const offset = random() * 6.28, bend = .15 + random() * .14;
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const u = (x - 128) / 94, v = (y - 126) / 115;
+      const angle = Math.atan2(v, u), radius = Math.hypot(u, v);
+      const outline = 1 + .021 * Math.sin(angle * 17 + offset) + .016 * Math.sin(angle * 29 + 2);
+      const edge = clamp((outline - radius) * 26);
+      if (!edge) continue;
+      // A leaning loop core, curved side ridges, and irregular spacing.
+      const a = u + bend * Math.sin(v * 2.5) + .05 * Math.sin(v * 6);
+      const b = v + .23;
+      const r = Math.sqrt(a * a * 1.23 + b * b * .83);
+      const theta = Math.atan2(b, a);
+      const phase = r * 99 + 1.3 * Math.sin(theta * 2 + r * 3) + .45 * Math.sin(u * 23 + v * 15) + .22 * Math.sin(v * 53);
+      const ridge = Math.pow(clamp((Math.sin(phase) + .16) / 1.16), .57);
+      const noise = random();
+      const pores = noise > .95 ? .06 : .54 + noise * .46;
+      const patches = .65 + .17 * Math.sin(u * 12 + v * 8 + offset) + .14 * Math.sin(u * 27 - v * 19);
+      const alpha = edge * (ridge * pores * patches * .8 + .022) * clamp((1.05 - radius) * 8);
+      const i = (y * size + x) * 4;
+      data.data[i] = 247; data.data[i + 1] = 238; data.data[i + 2] = 255; data.data[i + 3] = Math.round(alpha * 255);
+    }
+    c.putImageData(data, 0, 0);
+    return texture;
+  }
+  for (let i = 0; i < 5; i++) textures.push(makeFingerprint(i));
+
+  function resize() {
+    widthScale = action.clientWidth / WIDTH;
+    const dpr = Math.min(devicePixelRatio || 1, 3);
+    canvas.width = Math.round(action.clientWidth * dpr);
+    canvas.height = Math.round(face.clientHeight * dpr);
+    render();
+  }
+  function drawPrints(list, t) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save(); ctx.scale(canvas.width / WIDTH, canvas.height / HEIGHT);
+    for (const p of list) {
+      const age = t - p.down;
+      if (age < 0) continue;
+      const reveal = reduceMotion.matches ? 1 : smooth(age / .16);
+      const fade = mode === 'live' ? 1 - smooth((age - 13) / 10) : 1;
+      if (fade <= 0) continue;
+      const growth = .92 + reveal * .08;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle * Math.PI / 180); ctx.scale(growth, growth);
+      ctx.globalAlpha = p.strength * reveal * fade;
+      ctx.drawImage(textures[p.seed % textures.length], -55, -58, 110, 116);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  function replayDepth(t) {
+    let depth = 0;
+    for (const p of presses) {
+      if (t < p.down) continue;
+      if (t <= p.up) depth = Math.max(depth, smooth((t - p.down) / .082));
+      else if (t < p.up + .25) {
+        const release = t - p.up;
+        depth += Math.exp(-release * 24) * Math.cos(release * 20);
+      }
+    }
+    return clamp(depth, -.035, 1);
+  }
+  function render() {
+    const d = mode === 'replay' ? replayDepth(time) : pressLevel;
+    action.style.setProperty('--travel', `${d * 10.2 * widthScale}px`);
+    action.style.setProperty('--scale', `${1 - .022 * Math.max(0, d)}`);
+    action.style.setProperty('--shadow-y', `${(12 - d * 8) * widthScale}px`);
+    action.style.setProperty('--shadow-blur', `${(15 - d * 8) * widthScale}px`);
+    action.dataset.pressed = String(d > .5);
+    const list = mode === 'replay' ? presses : livePrints;
+    drawPrints(list, mode === 'replay' ? time : liveTime);
+    action.dataset.printCount = String(list.filter(p => p.down <= (mode === 'replay' ? time : liveTime)).length);
+    cursor.hidden = mode !== 'replay' || time >= DURATION || reduceMotion.matches;
+    if (!cursor.hidden) {
+      let a = pointerPath[0], b = a;
+      for (let i = 1; i < pointerPath.length; i++) {
+        b = pointerPath[i]; if (time <= b[0]) break; a = b;
+      }
+      const f = a === b ? 1 : smooth((time - a[0]) / (b[0] - a[0]));
+      const x = a[1] + (b[1] - a[1]) * f, y = a[2] + (b[2] - a[2]) * f;
+      cursor.style.left = `${32.34 + x / WIDTH * 35.12}%`;
+      cursor.style.top = `${42.96 + (y + Math.max(0, d) * 4) / HEIGHT * 15.13}%`;
+    }
+    timeline.value = time.toFixed(2);
+    timeline.style.setProperty('--progress', `${time / DURATION * 100}%`);
+    $('time').textContent = `${time.toFixed(1)} / 8.0`;
+    $('toggle').dataset.playing = String(playing);
+    $('toggle').setAttribute('aria-label', playing ? 'Pause animation' : 'Play animation');
+  }
+  function tick(now) {
+    raf = 0;
+    const dt = lastFrame ? Math.min((now - lastFrame) / 1000, .05) : 0;
+    lastFrame = now;
+    if (mode === 'replay' && playing) {
+      time = Math.min(time + dt * rate, DURATION);
+      if (time >= DURATION) { playing = false; mode = 'live'; livePrints = []; liveTime = 0; }
+    } else if (mode === 'live') {
+      liveTime += dt;
+      livePrints = livePrints.filter(p => liveTime - p.down < 23);
+      const target = held ? 1 : 0;
+      if (reduceMotion.matches) { pressLevel = target; velocity = 0; }
+      else {
+        // Substeps keep the damped spring stable on slow frames.
+        const steps = Math.max(1, Math.ceil(dt / .008)), h = dt / steps;
+        for (let i = 0; i < steps; i++) {
+          velocity += ((target - pressLevel) * 950 - velocity * 48) * h;
+          pressLevel += velocity * h;
+        }
+      }
+    }
+    render();
+    if (playing || (mode === 'live' && (held || livePrints.length || Math.abs(pressLevel) > .0001 || Math.abs(velocity) > .001))) wake();
+    else lastFrame = 0;
+  }
+  function wake() { if (!raf && !document.hidden) raf = requestAnimationFrame(tick); }
+  function enterLive() {
+    if (mode === 'replay') {
+      livePrints = presses.filter(p => p.down < time).map(p => ({ ...p, down: -(time - p.down) }));
+      mode = 'live'; liveTime = 0; pressLevel = 0; velocity = 0;
+    }
+    playing = false; render();
+  }
+  function touchAt(x, y, key) {
+    enterLive(); held = key;
+    livePrints.push({ down: liveTime, x: clamp(x, 0, WIDTH), y: clamp(y, 0, HEIGHT), angle: -30 + ((seed * 19) % 65), strength: .62, seed: seed++ });
+    // Bound the work even after many clicks.
+    if (livePrints.length > 35) livePrints.shift();
+    wake();
+  }
+  action.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || held !== null) return;
+    const box = face.getBoundingClientRect();
+    touchAt((e.clientX - box.left) / box.width * WIDTH, (e.clientY - box.top) / box.height * HEIGHT, e.pointerId);
+    action.setPointerCapture(e.pointerId);
+  });
+  function release(e) { if (held === e.pointerId || e.type === 'blur') { held = null; wake(); } }
+  action.addEventListener('pointerup', release);
+  action.addEventListener('pointercancel', release);
+  action.addEventListener('lostpointercapture', release);
+  window.addEventListener('blur', release);
+  action.addEventListener('keydown', e => {
+    if (e.code !== 'Space' && e.code !== 'Enter') return;
+    e.preventDefault(); if (!e.repeat && held === null) touchAt(WIDTH / 2, HEIGHT / 2, e.code);
+  });
+  action.addEventListener('keyup', e => { if (held === e.code) { e.preventDefault(); held = null; wake(); } });
+  // Assistive technology can activate a native button without pointer events.
+  action.addEventListener('click', e => { if (e.detail === 0 && held === null && !e.pointerType) { touchAt(WIDTH / 2, HEIGHT / 2, 'assistive'); held = null; } });
+  function replay() { mode = 'replay'; held = null; playing = true; time = 0; livePrints = []; pressLevel = velocity = 0; lastFrame = 0; render(); wake(); }
+  $('replay').addEventListener('click', replay);
+  $('toggle').addEventListener('click', () => {
+    if (mode === 'live' || time >= DURATION) return replay();
+    playing = !playing; lastFrame = 0; render(); wake();
+  });
+  $('clear').addEventListener('click', () => { mode = 'live'; playing = false; held = null; livePrints = []; time = 0; liveTime = 0; pressLevel = velocity = 0; render(); });
+  $('speed').addEventListener('change', e => { rate = Number(e.target.value); });
+  timeline.addEventListener('input', e => { mode = 'replay'; held = null; playing = false; time = Number(e.target.value); render(); });
+  document.addEventListener('visibilitychange', () => { lastFrame = 0; if (document.hidden) { cancelAnimationFrame(raf); raf = 0; held = null; } else wake(); });
+  reduceMotion.addEventListener('change', () => { if (reduceMotion.matches) { playing = false; enterLive(); } wake(); });
+  new ResizeObserver(resize).observe(action);
+  resize(); render(); wake();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
+<title>Take action — motion study</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f2f9;color:#696273;font-family:Arial,Helvetica,sans-serif}body{min-height:100svh;display:grid;grid-template-rows:1fr auto;overflow-x:hidden}
+main{display:grid;place-items:center;min-height:300px}.scene{position:relative;width:min(100vw,1048px,calc((100svh - 100px)*1.3505));aspect-ratio:1048/776;container-type:inline-size}
+.mount{position:absolute;left:50%;top:50%;width:35.12%;height:15.21%;transform:translate(-50%,-50%);isolation:isolate}
+.ground{position:absolute;inset:7% 2% -9%;border-radius:7cqw;background:#3b1d71;filter:blur(1.4cqw);opacity:.2;transform:translateY(.7cqw);z-index:-1}
+.pedestal{position:absolute;inset:0;border-radius:2.55cqw;background:linear-gradient(#9855f4 65%,#5714b8 100%);transform:translateY(1.05cqw);box-shadow:0 .15cqw .22cqw #5e2ab744,inset 0 -.16cqw .2cqw #7830db}
+#action{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:2.55cqw;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;background:none;outline-offset:12px;transform-origin:50% 90%;user-select:none}
+#action:focus-visible{outline:2px solid #8a4deb}.face{position:absolute;inset:0;overflow:hidden;border-radius:inherit;background:radial-gradient(ellipse at 50% -30%,#b587ff77,transparent 75%),linear-gradient(180deg,#995bfa 0%,#8442f4 47%,#7936ed 80%,#8e4ff6 100%);box-shadow:inset 0 .22cqw .27cqw #ffffff70,inset .16cqw 0 .38cqw #d6b9ff88,inset -.16cqw 0 .38cqw #d6b9ff80,inset 0 -.2cqw .18cqw #e0c4ffb0,inset 0 0 1.45cqw #ceb0ff70,0 0 .2cqw #b591ed}
+.face:after{content:"";position:absolute;inset:0;border:.19cqw solid #dbbaff88;border-bottom-color:#e5ceffd0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 .65cqw 1.3cqw #cca4ff20}
+#prints{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+.label{position:absolute;inset:0;display:grid;place-items:center;font-size:4.2cqw;font-weight:600;letter-spacing:-.1cqw;color:#fff;line-height:1;text-shadow:0 .12cqw .25cqw #5d26a530;pointer-events:none}
+.shine{position:absolute;inset:0;background:radial-gradient(ellipse at var(--light-x,50%) 0%,#fff2,transparent 60%);border-radius:inherit;pointer-events:none}
+#cursor{position:absolute;width:1.8cqw;height:2.3cqw;pointer-events:none;z-index:5;filter:drop-shadow(0 .1cqw .12cqw #0004);transform:translate(-22%,-6%)}
+footer{display:flex;align-items:center;justify-content:center;gap:22px;padding:20px 24px 26px;font-size:12px;min-height:88px;flex-wrap:wrap}
+.modes{display:flex;background:#ebe6f0;border:1px solid #e7e0ed;border-radius:99px;padding:3px;gap:2px}.control{font:inherit;color:#77707e;border:0;background:transparent;border-radius:99px;padding:8px 13px;cursor:pointer;white-space:nowrap}.control[aria-pressed=true]{background:#fff;color:#664094;box-shadow:0 1px 4px #39215510}.control:focus-visible,input:focus-visible{outline:2px solid #985bfa;outline-offset:3px}.control:hover{color:#682bb9}.transport{display:flex;align-items:center;gap:10px}#pause{width:58px;text-align:left;padding-left:0}#time{font-variant-numeric:tabular-nums;min-width:53px;color:#8d8596;font-size:11px}#seek{width:120px;height:3px;accent-color:#9454ef;cursor:pointer}#hint{min-width:139px;color:#9a929f;font-size:11px}.try #cursor{display:none}.try .transport{display:none}
+@media(max-width:600px){.scene{width:100vw}.mount{width:48%;height:20.8%}.label{font-size:5.75cqw}footer{gap:12px;padding:14px 16px 24px}#hint{width:100%;text-align:center}#seek{width:90px}.face,.pedestal,#action{border-radius:3.4cqw}}
+@media(prefers-reduced-motion:reduce){.ground{filter:blur(1cqw)}}
+</style>
+</head>
+<body>
+<main aria-label="A recreation of a purple glass button that compresses and collects fingerprints">
+<div class="scene" id="scene">
+<div class="mount"><div class="ground" id="ground"></div><div class="pedestal"></div>
+<button id="action" type="button" aria-label="take action"><span class="face"><canvas id="prints" width="1104" height="354" aria-hidden="true"></canvas><span class="shine"></span></span><span class="label">take action</span></button>
+</div>
+<svg id="cursor" viewBox="0 0 20 25" aria-hidden="true"><path d="M6 12V3.8C6 1.4 9.2 1.4 9.2 3.8v6.4c.7-1.7 3.1-1.1 3.1.6.8-1.2 3-.7 3.1 1 .8-.7 2.6-.2 2.6 1.5v4.6c0 3.5-2.4 5.4-5.8 5.4-2.4 0-4.3-1.3-5.7-3.5L3 14.2C1.6 12 4 10.5 5.3 12.6L6 14" fill="white" stroke="#665b75" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+</main>
+<footer>
+<div class="modes" aria-label="Playback mode"><button class="control" id="demo" aria-pressed="true">Replay capture</button><button class="control" id="try" aria-pressed="false">Try it yourself</button></div>
+<div class="transport"><button class="control" id="pause">Pause</button><input id="seek" aria-label="Animation time" type="range" min="0" max="8.53" step="0.01" value="0"><span id="time">0.0 / 8.5</span></div>
+<span id="hint">Recreated from the bundle</span>
+<button class="control" id="clear" hidden>Clean surface</button>
+</footer>
+<script>
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id), button=$('action'), canvas=$('prints'), ctx=canvas.getContext('2d'), scene=$('scene'), cursor=$('cursor');
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+ const smooth=x=>{x=clamp(x);return x*x*(3-2*x)};
+ let mode='demo',playing=!reduced,time=.55,last=performance.now(),depth=0,velocity=0,held=false,liveClock=0,marks=[],activePointer=null;
+
+ // Procedural fingerprint textures. No source pixels or remote assets are used.
+ function texture(seed){
+   const c=document.createElement('canvas');c.width=260;c.height=320;
+   const g=c.getContext('2d'),im=g.createImageData(c.width,c.height);
+   const rand=(x,y)=>{const n=Math.sin(x*127.1+y*311.7+seed*71.3)*43758.5453;return n-Math.floor(n)};
+   for(let y=0;y<320;y++)for(let x=0;x<260;x++){
+     let X=(x-130)/1.05,Y=(y-154)/1.3;
+     const theta=Math.atan2(Y,X),r=Math.hypot(X,Y);
+     const boundary=99+5*Math.sin(theta*3+seed)+3*Math.cos(theta*7);
+     const mask=smooth((boundary-r)/20);
+     if(!mask)continue;
+     // Offset, asymmetric recurving ridges and an open lower delta.
+     X+=9*Math.sin(Y/57)+3*Math.sin(Y/19+seed)*smooth(r/90);
+     const cy=Y+13;
+     const radius=Math.sqrt(X*X+cy*cy);
+     const a=Math.atan2(cy,X);
+     let field=radius+2.8*Math.sin(a*2+radius/50)+1.15*Math.sin(Y/8+X/21)+.55*Math.cos(X/5-Y/13);
+     field+=smooth((Y-5)/75)*7*Math.sin(X/40);
+     const phase=field*2.12;
+     let ridge=Math.pow(Math.max(0,(Math.cos(phase)+.12)/1.12),2.2);
+     const grain=rand(x,y);
+     const patch=.5+.3*Math.sin(x/34+y/42+seed)+.16*Math.cos(x/13-y/27);
+     let alpha=(ridge*.68+.035)*mask*clamp(patch,.18,1)*(.48+.52*grain);
+     if(grain<.1)alpha*=.14;
+     const i=(y*260+x)*4;im.data[i]=249;im.data[i+1]=237;im.data[i+2]=255;im.data[i+3]=Math.round(alpha*255);
+   }
+   g.putImageData(im,0,0);return c;
+ }
+ const textures=[texture(1),texture(3),texture(6),texture(9)];
+ // Capture-relative estimates from transition PNGs. The reset near 0.4 s
+ // belongs to media playback starting after the initial captured image.
+ const presses=[
+   {t:.91,end:1.19,x:.29,y:.54,a:-.46,s:0},
+   {t:1.62,end:1.84,x:.80,y:.54,a:.42,s:1},
+   {t:2.20,end:2.44,x:.83,y:.53,a:.5,s:1},
+   {t:3.14,end:3.36,x:.48,y:.53,a:-.28,s:2,opacity:.22},
+   {t:3.67,end:3.96,x:.16,y:.29,a:-.6,s:3},
+   {t:4.31,end:4.94,x:.24,y:.56,a:-.45,s:0},
+   {t:5.97,end:6.11,x:.50,y:.52,a:-.60,s:2},
+   {t:6.56,end:6.72,x:.40,y:.51,a:-.56,s:2},
+   {t:7.07,end:7.22,x:.15,y:.53,a:-.42,s:0},
+   {t:8.04,end:8.20,x:.52,y:.55,a:-.35,s:2}
+ ];
+ const path=[
+  [0,.22,.62],[.4,.30,.75],[.75,.31,.71],[.98,.29,.54],[1.27,.45,.48],[1.61,.80,.54],[1.93,.84,.67],[2.2,.83,.53],
+  [2.72,.50,.31],[3.17,.48,.53],[3.5,.20,.38],[3.72,.16,.29],[4.20,.24,.56],[4.94,.24,.56],
+  [5.50,.79,.63],[5.81,.79,.63],[6.02,.50,.52],[6.18,.34,-.19],[6.38,.38,.05],[6.58,.40,.51],[6.99,.15,.53],
+  [7.45,.9,-.12],[7.82,.88,-.17],[8.06,.52,.55],[8.30,.49,1.5],[8.53,.74,2.10]
+ ];
+ function stamp(m,age,opacity=1){
+   const appear=smooth(age/.12),fade=1-smooth((age-4.2)/3.0);
+   if(appear*fade<.001)return;
+   ctx.save();ctx.translate(m.x*1104,m.y*354+10);ctx.rotate(m.a);
+   ctx.globalAlpha=appear*fade*opacity;
+   const scale=1+.025*(1-appear);
+   ctx.drawImage(textures[m.s%4],-165*scale,-192*scale,330*scale,384*scale);ctx.restore();
+ }
+ function draw(){
+   ctx.clearRect(0,0,1104,354);
+   if(mode==='demo'){
+     if(time<.42){stamp({...presses[0],x:.24},2,.83);stamp(presses[1],3,.53)}
+     else if(time<8.34){for(const m of presses)if(time>=m.t)stamp(m,time-m.t,m.opacity??.83)}
+   } else for(const m of marks)stamp(m,liveClock-m.t,.94);
+ }
+ function cursorAt(t){
+   let i=0;while(i<path.length-2&&t>path[i+1][0])i++;
+   const a=path[i],b=path[i+1],p=smooth((t-a[0])/(b[0]-a[0]));
+   const x=a[1]+(b[1]-a[1])*p,y=a[2]+(b[2]-a[2])*p;
+   const mount=scene.querySelector('.mount');
+   cursor.style.left=(mount.offsetLeft-mount.offsetWidth/2+x*mount.offsetWidth)+'px';
+   cursor.style.top=(mount.offsetTop-mount.offsetHeight/2+y*mount.offsetHeight+depth*scene.clientWidth*.0105)+'px';
+ }
+ function targetDepth(){
+   if(mode==='try')return held?1:0;
+   if(time<.36)return 1;
+   for(const p of presses){if(time>=p.t&&time<=p.end)return 1}
+   return 0;
+ }
+ function paint(dt){
+   const target=targetDepth();
+   // Damped spring: fast downstroke, a gentle return from the physical base.
+   const stiffness=target?780:590,damping=target?49:33;
+   if(reduced){depth=target;velocity=0}
+   else {
+     const count=Math.max(1,Math.ceil(dt/.008)),h=dt/count;
+     for(let i=0;i<count;i++){velocity+=(stiffness*(target-depth)-damping*velocity)*h;depth+=velocity*h}
+   }
+   button.style.transform=`translateY(${depth*1.02}cqw) scale(${1-depth*.018},${1-depth*.008})`;
+   $('ground').style.opacity=.2-depth*.1;
+   draw();if(mode==='demo')cursorAt(time);
+ }
+ function ui(){
+   $('seek').value=Math.min(time,8.53);$('time').textContent=Math.min(time,8.53).toFixed(1)+' / 8.5';$('pause').textContent=playing?'Pause':'Play';
+ }
+ function frame(now){
+   const dt=Math.min((now-last)/1000,.05);last=now;liveClock+=dt;
+   if(mode==='demo'&&playing){time+=dt;if(time>9.43){time=.42;depth=0;velocity=0}}
+   time=Math.min(time,9.43);paint(dt);ui();requestAnimationFrame(frame);
+ }
+ function setMode(next){
+   mode=next;document.body.classList.toggle('try',next==='try');
+   $('demo').setAttribute('aria-pressed',String(next==='demo'));$('try').setAttribute('aria-pressed',String(next==='try'));
+   $('clear').hidden=next!=='try';$('hint').textContent=next==='try'?'Press anywhere on the button':'Recreated from the bundle';
+   if(next==='demo'){time=.42;playing=!reduced;held=false;depth=0;velocity=0}
+   ui();
+ }
+ $('demo').onclick=()=>setMode('demo');$('try').onclick=()=>setMode('try');
+ $('pause').onclick=()=>{playing=!playing;if(time>=8.53)time=.42;ui()};
+ $('seek').oninput=e=>{playing=false;time=Number(e.target.value);depth=targetDepth();velocity=0;paint(0);ui()};
+ $('clear').onclick=()=>{marks=[];draw()};
+ function addMark(x,y){marks.push({t:liveClock,x,y,a:-.65+(marks.length%4)*.28,s:marks.length%4});if(marks.length>24)marks.shift()}
+ button.addEventListener('pointerdown',e=>{
+   if(e.button!==0||activePointer!==null)return;
+   if(mode!=='try')setMode('try');
+   const r=button.getBoundingClientRect();addMark(clamp((e.clientX-r.left)/r.width),clamp((e.clientY-r.top)/r.height));
+   held=true;activePointer=e.pointerId;button.setPointerCapture(e.pointerId);
+ });
+ const release=e=>{if(e.pointerId===activePointer){held=false;activePointer=null}};
+ button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);
+ button.addEventListener('pointermove',e=>{const r=button.getBoundingClientRect();button.style.setProperty('--light-x',100*(e.clientX-r.left)/r.width+'%')});
+ button.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();if(mode!=='try')setMode('try');held=true;addMark(.5,.5)}});
+ button.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();held=false}});
+ button.addEventListener('blur',()=>{held=false;activePointer=null});
+ button.addEventListener('click',e=>{if(e.detail===0&&!held){if(mode!=='try')setMode('try');addMark(.5,.5)}});
+ document.addEventListener('visibilitychange',()=>{last=performance.now();if(document.hidden){held=false;activePointer=null}});
+ ui();paint(0);requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

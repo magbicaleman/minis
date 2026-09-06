@@ -1,0 +1,69 @@
+{
+  "reviewDate": "2026-09-04",
+  "standaloneArtifacts": {
+    "browser": "Chrome",
+    "viewports": [
+      [
+        1048,
+        880
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "dpr": 1,
+    "variantsChecked": 6,
+    "checks": [
+      "Direct pointer presses",
+      "Space key input",
+      "Clean, held, two-contact and mobile screenshots",
+      "No uncaught JavaScript errors observed",
+      "No horizontal overflow observed"
+    ]
+  },
+  "studyPage": {
+    "browser": "Codex in-app browser",
+    "checks": [
+      "Hub command opens installed study",
+      "All six embedded demos loaded and accepted direct presses",
+      "Desktop/mobile preview toggle works",
+      "Reference group selection and previous-frame stepping work",
+      "Ultra run history expands",
+      "Phone page width fits viewport"
+    ],
+    "automationLimitation": "A separate terminal Playwright check could not click inside a scaled iframe. Native in-app browser clicks worked; the original demos were unchanged."
+  },
+  "artifactIntegrity": "Six HTML SHA-256 values match the original outputs; only the study wrapper was added.",
+  "sharingReview": {
+    "reviewDate": "2026-09-05",
+    "browser": "Codex in-app browser",
+    "pageViewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        390,
+        844
+      ],
+      [
+        320,
+        740
+      ]
+    ],
+    "checks": [
+      "Compact High/Ultra pair displayed side by side at phone width",
+      "Full controls restored iframe interaction; High pointer and Space input exercised",
+      "Pair replay/reset and gallery play/reset exercised",
+      "Gallery Compare in B selected Max and focused the selector",
+      "Desktop and mobile preview modes exercised",
+      "Gallery labels precede every preview",
+      "No page-level horizontal overflow at tested widths",
+      "No browser error or warning logs observed",
+      "Six original HTML hashes unchanged; usage data unchanged",
+      "Public text scan found no private capture-tool names or local paths"
+    ],
+    "scope": "Study wrapper review only. No new reconstruction runs or motion-fidelity benchmark."
+  }
+}

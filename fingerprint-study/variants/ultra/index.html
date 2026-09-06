@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Take action — a tactile button</title>
+<style>
+  :root{color-scheme:light;font-family:Arial,Helvetica,sans-serif;color:#716779;background:#f5f2f8}
+  *{box-sizing:border-box}body{margin:0;min-width:280px}button,input,select{font:inherit}button{-webkit-tap-highlight-color:transparent}
+  .app{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 16px 28px;overflow:hidden}
+  .stage{position:relative;width:min(1048px,calc(100vw - 32px),calc((100svh - 168px)*1.350515));aspect-ratio:1048/776;container-type:inline-size;flex:none;isolation:isolate}
+  .action{--travel:0px;--sx:1;--sy:1;position:absolute;left:50%;top:50%;width:35.12%;height:16.5%;transform:translate(-50%,-44%);border:0;padding:0;background:none;cursor:pointer;outline:none;touch-action:none;user-select:none;-webkit-user-select:none}
+  .action:focus-visible:after{content:"";position:absolute;inset:-9px;border:2px solid #8252c5;border-radius:35px;pointer-events:none}
+  .shadow{position:absolute;inset:14% 2% -3%;border-radius:25%;background:#634679;opacity:.22;filter:blur(8px);transform:translateY(4px);pointer-events:none}
+  .base{position:absolute;inset:7.5% 0 0;border-radius:2.5cqw;background:linear-gradient(#7028da 35%,#6419c5 76%,#6118c1);box-shadow:0 1px 1px #6328a832}
+  .face{position:absolute;inset:0 0 8%;overflow:hidden;border-radius:2.5cqw;background:linear-gradient(180deg,#9c65fa 0%,#8748f7 22%,#803bf2 68%,#8544f0 91%,#9256ee 100%);box-shadow:inset 0 1px 2px 1px #ffffff63,inset 0 -1px 1px 1px #e3c1ffad,inset 2px 0 5px #e3c5ff5c,inset -2px 0 5px #dbbcff50;transform:translateY(var(--travel)) scale(var(--sx),var(--sy));transform-origin:50% 100%;will-change:transform;pointer-events:none}
+  .face:before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,#ffffff19,transparent 30%,transparent 73%,#fff0 82%,#e3c9ff1a);border:1px solid #e5ceff48;z-index:3;pointer-events:none}
+  .shine{position:absolute;inset:0;background:radial-gradient(ellipse at var(--light-x,40%) 0%,#ffffff13,transparent 66%);pointer-events:none}
+  .prints{position:absolute;width:100%;height:100%;inset:0;mix-blend-mode:screen;opacity:.96}
+  .label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:4.85cqw;font-weight:500;letter-spacing:-.065cqw;text-shadow:0 1px 2px #51238530;z-index:2;padding-bottom:.1cqw;white-space:nowrap}
+  .cursor{position:absolute;width:1.72cqw;height:2.3cqw;min-width:10px;min-height:13px;pointer-events:none;filter:drop-shadow(0 1px 1px #27153770);z-index:5;transform:translate(-20%,-12%);opacity:0}
+  .controls{width:min(100%,460px);margin-top:8px;height:109px;flex:none;text-align:center;position:relative}
+  .hint{font-size:12px;margin:0 0 17px;min-height:15px;letter-spacing:.01em;color:#908595}
+  .toolbar{display:flex;justify-content:center;align-items:center;gap:5px}
+  .control{display:inline-flex;justify-content:center;align-items:center;gap:6px;height:36px;min-width:36px;border:1px solid transparent;border-radius:9px;padding:0 11px;background:transparent;color:#72697b;cursor:pointer;font-size:12px;white-space:nowrap}
+  .control:hover{background:#eae4f0;color:#4d3b61}.control:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #9264ce;outline-offset:3px}
+  .control svg{width:14px;height:14px}.control.selected{color:#674391;background:#ebe3f3;border-color:#e1d5ec}.divider{height:16px;width:1px;background:#ded5e5;margin:0 7px}
+  .speed{appearance:none;border:0;background:transparent;color:#8d8197;font-size:11px;padding:8px;cursor:pointer;border-radius:6px;text-align:center}
+  .timeline{display:flex;align-items:center;gap:12px;margin:15px auto 0;width:min(100%,310px)}
+  .timeline input{width:100%;height:18px;margin:0;appearance:none;background:transparent;cursor:pointer;accent-color:#a486bf}
+  .timeline input::-webkit-slider-runnable-track{height:2px;border-radius:3px;background:linear-gradient(to right,#b096c6 var(--progress,0%),#e0d6e8 var(--progress,0%))}
+  .timeline input::-webkit-slider-thumb{appearance:none;width:7px;height:7px;border-radius:50%;background:#b096c6;margin-top:-2.5px}
+  .timeline input::-moz-range-track{height:2px;background:#e0d6e8}.timeline input::-moz-range-thumb{width:7px;height:7px;border:none;background:#b096c6;border-radius:50%}
+  .time{font-size:10px;color:#9a8ca5;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:54px}
+  [hidden]{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media(max-width:600px){.app{justify-content:center;padding-bottom:max(24px,env(safe-area-inset-bottom))}.stage{width:calc(100vw - 32px);min-height:260px;aspect-ratio:1.15}.action{width:62%;height:21.6cqw;max-height:90px;transform:translate(-50%,-50%)}.face{border-radius:4cqw}.base{border-radius:4cqw}.label{font-size:8.56cqw;letter-spacing:-.13cqw}.cursor{width:3cqw;height:4cqw}.controls{margin-top:22px}.hint{margin-bottom:15px}}
+  @media(prefers-reduced-motion:reduce){.face{will-change:auto}}
+</style>
+</head>
+<body>
+<main class="app" aria-label="Tactile button animation">
+  <div class="stage" id="stage">
+    <button class="action" id="action" aria-label="Take action. Press to leave a fingerprint." aria-describedby="hint">
+      <span class="shadow" id="shadow"></span><span class="base"></span>
+      <span class="face" id="face"><span class="shine"></span><canvas class="prints" id="prints" aria-hidden="true"></canvas><span class="label">take action</span></span>
+    </button>
+    <svg class="cursor" id="cursor" viewBox="0 0 20 27" aria-hidden="true"><path d="M6.3 14V3.8C6.3.4 10 .4 10 3.8v7.8c.5-1.7 3.2-1.7 3.6.6.8-1.5 3.1-1 3.3 1 .6-.8 2.8-.1 2.8 1.8v4.3c0 2.9-2 4-2.4 6H7c-.3-1.6-1.7-2.9-2.8-4.3L1 16.5c-1.4-2.4.9-4.4 2.8-2.5l2.5 2.5Z" fill="white" stroke="#514a56" stroke-width="1.3" stroke-linejoin="round"/></svg>
+  </div>
+  <section class="controls" aria-label="Animation controls">
+    <p class="hint" id="hint">A little pressure leaves an impression.</p>
+    <div class="toolbar">
+      <button class="control" id="play" aria-label="Pause animation"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path id="play-icon" d="M4 3h3v10H4zm5 0h3v10H9z"/></svg><span id="play-label">Pause</span></button>
+      <button class="control" id="replay" aria-label="Replay animation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3.1 5.2a5.4 5.4 0 1 1-.4 4.2M3 1.5v4.4h4.3"/></svg>Replay</button>
+      <span class="divider" aria-hidden="true"></span>
+      <button class="control" id="interactive" aria-pressed="false">Try it yourself</button>
+      <button class="control" id="clear" hidden>Clear prints</button>
+      <select class="speed" id="speed" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+    </div>
+    <div class="timeline" id="timeline"><input id="scrub" type="range" min="0" max="8.043" step="0.001" value="0" aria-label="Animation time"><span class="time" id="time">0.0 / 8.0</span></div>
+    <span class="sr-only" id="announcement" role="status" aria-live="polite"></span>
+  </section>
+</main>
+<script>
+'use strict';
+/* Local reconstruction from supplied frame evidence. No libraries or network assets. */
+/* Original procedural residue texture; no images, imports, or network requests.
+ * Returns a transparent 240 × 300 canvas. Display around 55 × 67 CSS pixels.
+ * Every seed makes a deterministic variant. Set the drawing context's
+ * globalAlpha to approximately .45–.7 when stamping onto a purple surface.
+ */
+function createFingerprint(seed = 1) {
+  const width = 240, height = 300;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  let state = ((Number(seed) || 1) * 2654435761) >>> 0;
+  const random = () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let n = state;
+    n = Math.imul(n ^ (n >>> 15), n | 1);
+    n ^= n + Math.imul(n ^ (n >>> 7), n | 61);
+    return ((n ^ (n >>> 14)) >>> 0) / 4294967296;
+  };
+  const phase = random() * Math.PI * 2;
+  const coreX = 118 + random() * 15;
+  const coreY = 133 + random() * 14;
+  const lean = -.13 + random() * .17;
+  const clamp = value => Math.max(0, Math.min(1, value));
+  const smoothstep = (a, b, value) => {
+    const t = clamp((value - a) / (b - a));
+    return t * t * (3 - 2 * t);
+  };
+
+  context.strokeStyle = '#fff';
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+
+  // Recurving loop ridges: each crest bends around the core and continues
+  // into two long, subtly splayed legs. Their open shape is characteristic
+  // of a loop fingerprint and avoids a concentric-circle appearance.
+  const point = (x, y, ridge) => {
+    const warpX = 3.1 * Math.sin(y * .023 + phase)
+      + 1.3 * Math.sin(y * .071 + x * .031 + phase)
+      + lean * (y - coreY);
+    const warpY = 1.7 * Math.sin(x * .047 + phase)
+      + .65 * Math.sin(y * .091 + ridge * .71);
+    context.lineTo(x + warpX, y + warpY);
+  };
+  for (let ridge = 0; ridge < 42; ridge++) {
+    const radius = 4.3 + ridge * 4.75;
+    const tall = radius * (1.19 + .035 * Math.sin(ridge * .22));
+    context.lineWidth = 1.65 + random() * .68;
+    context.globalAlpha = .77 + random() * .23;
+    context.beginPath();
+    // Left leg, bottom to shoulder.
+    for (let y = 340; y >= coreY; y -= 2.5) {
+      const below = (y - coreY) / 180;
+      const bend = 17 * below * below + 5 * Math.sin(below * 2.5);
+      point(coreX - radius - bend, y, ridge);
+    }
+    // Rounded, asymmetric hairpin crown.
+    for (let a = Math.PI; a <= Math.PI * 2; a += .019) {
+      const x = coreX + radius * Math.cos(a);
+      const y = coreY + tall * Math.sin(a)
+        + 3 * Math.cos(a) * Math.sin(a);
+      point(x, y, ridge);
+    }
+    // Right leg inclines toward the left near the foot of the print.
+    for (let y = coreY; y <= 340; y += 2.5) {
+      const below = (y - coreY) / 180;
+      const bend = 7 * below - 15 * below * below;
+      point(coreX + radius + bend, y, ridge);
+    }
+    context.stroke();
+  }
+
+  // A few ridge endings and forks break the mechanically perfect spacing.
+  context.globalCompositeOperation = 'destination-out';
+  context.globalAlpha = 1;
+  for (let i = 0; i < 17; i++) {
+    const x = 42 + random() * 159;
+    const y = 65 + random() * 191;
+    context.beginPath();
+    context.ellipse(x, y, .7 + random() * .8, 1.3 + random() * 2.0,
+      random() * 2, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalCompositeOperation = 'source-over';
+  context.globalAlpha = 1;
+
+  const pixels = context.getImageData(0, 0, width, height);
+  const data = pixels.data;
+  // Small value-noise grids give pressure patches without obvious shapes.
+  const grid = Array.from({ length: 12 * 15 }, () => random());
+  const noise = (x, y) => {
+    const gx = x / 24, gy = y / 24;
+    const ix = Math.floor(gx), iy = Math.floor(gy);
+    const tx = smoothstep(0, 1, gx - ix), ty = smoothstep(0, 1, gy - iy);
+    const at = (px, py) => grid[Math.min(14, py) * 12 + Math.min(11, px)];
+    const top = at(ix, iy) * (1 - tx) + at(ix + 1, iy) * tx;
+    const bottom = at(ix, iy + 1) * (1 - tx) + at(ix + 1, iy + 1) * tx;
+    return top * (1 - ty) + bottom * ty;
+  };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * 4;
+      const nx = (x - 120) / (95 + 4 * Math.sin(y * .025));
+      const ny = (y - 153) / 128;
+      const distance = Math.sqrt(nx * nx + ny * ny);
+      const edge = 1 + .028 * Math.sin(y * .24 + phase)
+        + .018 * Math.sin(x * .3 + y * .17);
+      const mask = 1 - smoothstep(edge - .14, edge + .025, distance);
+      const pressure = .44 + .56 * noise(x, y);
+      const grain = random();
+      const speckle = grain < .085 ? .14 : .5 + grain * .6;
+      const ridge = data[index + 3] / 255;
+      // Faint inter-ridge sebum binds the dry, granular ridges together.
+      const oil = .025 * pressure * (.65 + .35 * noise(x + 12, y + 6));
+      const alpha = mask * (ridge * .78 * pressure * speckle + oil);
+      data[index] = 244;
+      data[index + 1] = 231;
+      data[index + 2] = 255;
+      data[index + 3] = Math.round(alpha * 255);
+    }
+  }
+  context.putImageData(pixels, 0, 0);
+  return canvas;
+}
+
+
+const $=id=>document.getElementById(id);
+const stage=$('stage'), action=$('action'),face=$('face'),canvas=$('prints'),ctx=canvas.getContext('2d'),cursor=$('cursor');
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DURATION=8.042666;
+let mode='demo',playing=!reduceMotion,elapsed=0,rate=1,lastFrame=0,pressure=0,velocity=0,held=false,activePointer=null;
+let livePrints=[],liveClock=0,faceWidth=368,faceHeight=118,ignoreSyntheticClickUntil=0,assistivePulseUntil=0;
+const textureCache=new Map();
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const smooth=v=>{v=clamp(v);return v*v*(3-2*v)};
+// Timings are estimates from the bundle's close-up frames, corrected for playback starting at 0.26 s.
+const touches=[
+  {t:1.22,up:1.40,x:.17,y:.60,r:-.42,seed:3,strength:.30},
+  {t:1.87,up:2.08,x:.82,y:.62,r:.47,seed:11,strength:.44},
+  {t:2.37,up:2.62,x:.22,y:.61,r:-.35,seed:7,strength:.61},
+  {t:2.94,up:3.10,x:.48,y:.41,r:-.22,seed:15,strength:.15},
+  {t:3.30,up:3.64,x:.10,y:.55,r:-.67,seed:19,strength:.33},
+  {t:4.04,up:4.70,x:.10,y:.55,r:-.67,seed:19,strength:.22},
+  {t:4.93,up:5.20,x:.43,y:.56,r:-.35,seed:31,strength:.65},
+  {t:6.27,up:6.40,x:.42,y:.56,r:-.39,seed:43,strength:.38},
+  {t:6.85,up:7.07,x:.18,y:.50,r:-.38,seed:47,strength:.41},
+  {t:7.34,up:7.50,x:.71,y:.60,r:.34,seed:53,strength:.51}
+];
+const pointerPath=[
+  [0,.60,1.70],[.30,.15,.76],[.78,.15,.76],[1.08,.17,.60],[1.40,.17,.60],
+  [1.68,.82,.62],[2.08,.82,.62],[2.32,.22,.61],[2.62,.22,.61],
+  [2.83,.48,.39],[3.05,.48,.41],[3.23,.10,.55],[4.70,.10,.55],[4.82,.40,-.47],
+  [4.86,.43,.56],[5.23,.43,.56],[5.67,.38,-.46],[6.04,.43,-.16],
+  [6.24,.42,.56],[6.42,.42,.56],[6.77,.10,.60],[6.90,.18,.50],
+  [7.14,.59,.39],[7.29,.71,.60],[7.55,.71,.60],[7.80,.65,1.82],[8.043,.65,1.82]
+];
+function texture(seed){if(!textureCache.has(seed))textureCache.set(seed,createFingerprint(seed));return textureCache.get(seed)}
+function resize(){const r=face.getBoundingClientRect();faceWidth=r.width;faceHeight=r.height;const dpr=Math.min(devicePixelRatio||1,3);canvas.width=Math.round(faceWidth*dpr);canvas.height=Math.round(faceHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);render()}
+function pressureAt(t){let result=0;for(const e of touches){if(t<e.t)continue;if(t<e.up){result=Math.max(result,smooth((t-e.t)/.075));}else{const age=t-e.up;result=Math.max(result,Math.exp(-age*22)*Math.cos(age*30));}}return clamp(result,-.07,1)}
+function drawPrints(marks,t){ctx.clearRect(0,0,faceWidth,faceHeight);for(const p of marks){const age=t-p.t;if(age<0)continue;const reveal=reduceMotion?1:smooth(age/.13);const w=faceWidth*.275,h=faceHeight*.92;ctx.save();ctx.translate(p.x*faceWidth,p.y*faceHeight);ctx.rotate(p.r);ctx.globalAlpha=Math.min(.95,p.strength*1.5)*reveal;ctx.drawImage(texture(p.seed),-w/2,-h/2,w,h);ctx.restore();}}
+function drawPressure(value){const travel=faceHeight*.082*value;face.style.setProperty('--travel',travel.toFixed(3)+'px');face.style.setProperty('--sx',1-.016*value);face.style.setProperty('--sy',1-.015*value);$('shadow').style.opacity=(.21-.105*value).toFixed(3);$('shadow').style.filter=`blur(${faceWidth*(.025-.009*value)}px)`;document.querySelector('.base').style.opacity=String(1-clamp(value)*.92);action.dataset.pressed=value>.5?'true':'false';}
+function pointerAt(t){for(let i=1;i<pointerPath.length;i++){const a=pointerPath[i-1],b=pointerPath[i];if(t<=b[0]){const q=smooth((t-a[0])/(b[0]-a[0]));return{x:a[1]+(b[1]-a[1])*q,y:a[2]+(b[2]-a[2])*q};}}return{x:.65,y:1.82};}
+function render(){const t=mode==='demo'?Math.min(elapsed,DURATION):liveClock;drawPrints(mode==='demo'?touches:livePrints,t);drawPressure(mode==='demo'?pressureAt(t):pressure);
+ if(mode==='demo'){const p=pointerAt(t);const a=action.getBoundingClientRect(),s=stage.getBoundingClientRect();cursor.style.left=(a.left-s.left+p.x*a.width)+'px';cursor.style.top=(a.top-s.top+p.y*faceHeight)+'px';cursor.style.opacity=reduceMotion?'0':String(smooth(t/.18)*(1-smooth((t-7.84)/.18)));face.style.setProperty('--light-x',(clamp(p.x)*100)+'%');$('scrub').value=t;$('scrub').style.setProperty('--progress',(t/DURATION*100)+'%');$('time').textContent=`${t.toFixed(1)} / 8.0`;}
+ else cursor.style.opacity='0';
+}
+function tick(now){const dt=Math.min((now-(lastFrame||now))/1000,.04);lastFrame=now;if(playing&&mode==='demo'){elapsed+=dt*rate;if(elapsed>DURATION+.65)elapsed=0;} // hold final state briefly before the next replay
+ if(mode==='live'){liveClock+=dt;const target=held||liveClock<assistivePulseUntil?1:0;if(reduceMotion){pressure=target;velocity=0;}else{const steps=3,h=dt/steps;for(let i=0;i<steps;i++){velocity+=((target-pressure)*720-velocity*39)*h;pressure+=velocity*h;}}}
+ render();requestAnimationFrame(tick);}
+function syncControls(){const live=mode==='live';$('interactive').classList.toggle('selected',live);$('interactive').setAttribute('aria-pressed',String(live));$('interactive').textContent=live?'Watch replay':'Try it yourself';$('play').hidden=live;$('replay').hidden=live;$('speed').hidden=live;$('clear').hidden=!live;$('timeline').hidden=live;document.querySelector('.divider').hidden=live;$('play-label').textContent=playing?'Pause':'Play';$('play').setAttribute('aria-label',playing?'Pause animation':'Play animation');$('play-icon').setAttribute('d',playing?'M4 3h3v10H4zm5 0h3v10H9z':'M4 2.5 13 8 4 13.5z');$('hint').textContent=live?'Press, hold, and leave your mark.':reduceMotion?'Press play to see the reconstructed sequence.':'A little pressure leaves an impression.';}
+function enterLive(preserve=false){if(mode==='live')return;if(preserve)livePrints=touches.filter(p=>p.t<=elapsed).map(p=>({...p,t:-1}));else livePrints=[];mode='live';held=false;pressure=0;velocity=0;liveClock=0;assistivePulseUntil=0;syncControls();render();}
+function startDemo(){mode='demo';held=false;activePointer=null;elapsed=0;playing=true;syncControls();render();}
+function imprint(x,y){livePrints.push({t:liveClock,x:clamp(x,.06,.94),y:clamp(y,.10,.90),r:(x-.5)*.9-.15,seed:71+livePrints.length*13,strength:.61});if(livePrints.length>24)livePrints.shift();$('announcement').textContent=`Fingerprint added. ${livePrints.length} on the button.`;}
+action.addEventListener('pointerdown',e=>{if(e.button!==0||activePointer!==null)return;e.preventDefault();action.focus({preventScroll:true});enterLive(true);activePointer=e.pointerId;action.setPointerCapture(e.pointerId);held=true;const r=face.getBoundingClientRect();imprint((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height)});
+function release(e){if(activePointer===null||e&&e.pointerId!==activePointer)return;held=false;activePointer=null;}
+action.addEventListener('pointerup',release);action.addEventListener('pointercancel',release);action.addEventListener('lostpointercapture',release);
+action.addEventListener('pointermove',e=>{if(mode==='live'){const r=face.getBoundingClientRect();face.style.setProperty('--light-x',(clamp((e.clientX-r.left)/r.width)*100)+'%');}});
+action.addEventListener('keydown',e=>{if(e.key!==' '&&e.key!=='Enter')return;e.preventDefault();if(e.repeat)return;ignoreSyntheticClickUntil=performance.now()+500;enterLive(true);held=true;imprint(.5,.53);});
+action.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();held=false;ignoreSyntheticClickUntil=performance.now()+150;}});action.addEventListener('blur',()=>{held=false;activePointer=null;});
+action.addEventListener('click',e=>{if(e.detail===0&&performance.now()>ignoreSyntheticClickUntil){enterLive(true);imprint(.5,.53);assistivePulseUntil=liveClock+.14;}});
+window.addEventListener('blur',()=>{held=false;activePointer=null});
+$('play').addEventListener('click',()=>{playing=!playing;if(elapsed>=DURATION)elapsed=0;syncControls()});
+$('replay').addEventListener('click',startDemo);
+$('interactive').addEventListener('click',()=>{if(mode==='demo')enterLive();else startDemo()});
+$('clear').addEventListener('click',()=>{livePrints=[];textureCache.clear();$('announcement').textContent='Fingerprints cleared.';render()});
+$('speed').addEventListener('change',e=>{rate=Number(e.target.value)});
+$('scrub').addEventListener('input',e=>{playing=false;elapsed=clamp(Number(e.target.value),0,DURATION);syncControls();render()});
+document.addEventListener('visibilitychange',()=>{lastFrame=0;held=false;activePointer=null});
+new ResizeObserver(resize).observe(action);syncControls();resize();requestAnimationFrame(tick);
+</script>
+</body>
+</html>
